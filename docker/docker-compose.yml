@@ -1,8 +1,7 @@
-"""Docker Compose for local ContextCraft development.
-
-Services:
-  - postgres: PostgreSQL 16 with pgvector extension
-"""
+# Docker Compose for local ContextCraft development.
+#
+# Services:
+#   - postgres: PostgreSQL 16 with pgvector extension
 
 services:
   postgres:

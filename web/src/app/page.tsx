@@ -109,8 +109,12 @@ export default function Home() {
           }
         }
       }
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An error occurred");
+      }
     } finally {
       setIsAsking(false);
     }
@@ -182,7 +186,7 @@ export default function Home() {
           <div className={styles.emptyState}>
             <Bot size={48} color="var(--text-tertiary)" />
             <h2>What would you like to know about your code?</h2>
-            <p>Ask a question, and I'll search your indexed repositories to find the answer.</p>
+            <p>Ask a question, and I&apos;ll search your indexed repositories to find the answer.</p>
           </div>
         ) : (
           <>
