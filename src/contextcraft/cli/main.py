@@ -28,7 +28,7 @@ from rich.table import Table
 from contextcraft.config import settings
 from contextcraft.db import chunks_repo
 from contextcraft.db.connection import close_pool, run_migrations
-from contextcraft.embeddings.openai import OpenAIEmbedder
+from contextcraft.embeddings.base import BaseEmbedder
 from contextcraft.git.blame import get_chunk_blame, get_file_blame
 from contextcraft.git.history import get_file_history
 from contextcraft.llm.base import BaseLLM
@@ -271,9 +271,14 @@ async def _index_async(
     )
 
     # --- Embed ---
-    if not skip_embeddings and settings.openai_api_key:
+    if not skip_embeddings and (
+        (settings.embedding_provider == "gemini"
+        and settings.gemini_api_key)
+        or (settings.embedding_provider == "openai"
+        and settings.openai_api_key)
+    ):
         console.print("  Embedding chunks…")
-        embedder = OpenAIEmbedder()
+        embedder = _get_embedder()
         texts = [c.content for c in all_chunks]
 
         with Progress(
@@ -419,12 +424,20 @@ async def _ask_async(
     )
 
     # Embed the question
-    if not settings.openai_api_key:
-        console.print("[red]CONTEXTCRAFT_OPENAI_API_KEY is required for search.[/red]")
+    if settings.embedding_provider == "openai" and not settings.openai_api_key:
+        console.print(
+            "[red]CONTEXTCRAFT_OPENAI_API_KEY is required for search when using OpenAI.[/red]"
+        )
+        await close_pool()
+        raise typer.Exit(1)
+    elif settings.embedding_provider == "gemini" and not settings.gemini_api_key:
+        console.print(
+            "[red]CONTEXTCRAFT_GEMINI_API_KEY is required for search when using Gemini.[/red]"
+        )
         await close_pool()
         raise typer.Exit(1)
 
-    embedder = OpenAIEmbedder()
+    embedder = _get_embedder()
     with console.status("Embedding query…"):
         query_embedding = await embedder.embed_single(question)
 
@@ -561,10 +574,26 @@ def _get_llm() -> BaseLLM:
         from contextcraft.llm.ollama import OllamaLLM
 
         return OllamaLLM()
+    elif settings.llm_provider == "gemini":
+        from contextcraft.llm.gemini import GeminiLLM
+
+        return GeminiLLM()
     else:
         from contextcraft.llm.openai import OpenAILLM
 
         return OpenAILLM()
+
+
+def _get_embedder() -> BaseEmbedder:
+    """Return the configured Embedder provider."""
+    if settings.embedding_provider == "gemini":
+        from contextcraft.embeddings.gemini import GeminiEmbedder
+
+        return GeminiEmbedder()
+    else:
+        from contextcraft.embeddings.openai import OpenAIEmbedder
+
+        return OpenAIEmbedder()
 
 
 # ---------------------------------------------------------------------------

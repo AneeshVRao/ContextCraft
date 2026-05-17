@@ -24,6 +24,8 @@ from sse_starlette.sse import EventSourceResponse
 from contextcraft.config import settings
 from contextcraft.db import chunks_repo
 from contextcraft.db.connection import close_pool, run_migrations
+from contextcraft.embeddings.base import BaseEmbedder
+from contextcraft.embeddings.gemini import GeminiEmbedder
 from contextcraft.embeddings.openai import OpenAIEmbedder
 from contextcraft.models import SearchResult
 from contextcraft.search.context_builder import build_context, format_sources
@@ -150,8 +152,10 @@ async def index_repo(request: IndexRequest) -> dict[str, str]:
 @app.post("/ask")
 async def ask_question(request: AskRequest) -> EventSourceResponse:
     """Ask a question about an indexed codebase (SSE streaming)."""
-    if not settings.openai_api_key:
+    if settings.embedding_provider == "openai" and not settings.openai_api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+    elif settings.embedding_provider == "gemini" and not settings.gemini_api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
     # Find repository
     repos = await chunks_repo.list_repositories()
     if not repos:
@@ -180,11 +184,10 @@ async def ask_question(request: AskRequest) -> EventSourceResponse:
     # In a full cross-repo implementation, we'd add repo_path to CodeChunk.
     primary_repo_path = target_repos[0].local_path
 
-    # Embed query
-    if not settings.openai_api_key:
-        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    embedder: BaseEmbedder = (
+        GeminiEmbedder() if settings.embedding_provider == "gemini" else OpenAIEmbedder()
+    )
 
-    embedder = OpenAIEmbedder()
     query_embedding = await embedder.embed_single(request.question)
 
     # Search
@@ -256,6 +259,10 @@ Be concise but thorough. Use markdown formatting."""
             from contextcraft.llm.ollama import OllamaLLM
 
             llm = OllamaLLM()
+        elif settings.llm_provider == "gemini":
+            from contextcraft.llm.gemini import GeminiLLM
+
+            llm = GeminiLLM()
         else:
             llm = OpenAILLM()
 

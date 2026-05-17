@@ -38,6 +38,7 @@ dependencies = [
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.30.0",
     "sse-starlette>=2.0",
+    "google-genai>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -73,7 +74,8 @@ warn_unused_configs = true
 [[tool.mypy.overrides]]
 module = [
     "asyncpg.*",
-    "tree_sitter_languages.*"
+    "tree_sitter_languages.*",
+    "google.*"
 ]
 ignore_missing_imports = true
 

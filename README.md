@@ -30,8 +30,8 @@ We don't just guess that the system works — we measure it. See [BENCHMARK.md](
 
 - Python 3.11+
 - Docker (for PostgreSQL + pgvector)
-- An OpenAI API key
-- _(Optional)_ A Cohere API key for reranking
+- A **Free** Google Gemini API Key (for LLM and Embeddings)
+- _(Optional)_ A **Free** Cohere Trial API key for reranking
 
 ### 1. Clone and install
 
@@ -47,12 +47,16 @@ pip install -e ".[dev]"
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-### 3. Configure
+### 3. Configure API Keys (Zero-Cost Setup)
+
+Get your free API keys:
+1. **Google Gemini (AI Studio)**: [Get Key Here](https://aistudio.google.com/app/apikey) (Free tier, no credit card required)
+2. **Cohere**: [Get Trial Key Here](https://dashboard.cohere.com/api-keys) (Free tier, no credit card required)
 
 ```bash
 cp .env.example .env
 # Edit .env and set:
-#   CONTEXTCRAFT_OPENAI_API_KEY=sk-...
+#   CONTEXTCRAFT_GEMINI_API_KEY=AIzaSy...
 #   CONTEXTCRAFT_COHERE_API_KEY=...  (optional, enables reranking)
 ```
 

@@ -12,15 +12,15 @@ import logging
 import statistics
 import time
 from pathlib import Path
+from uuid import UUID
 
 from rich.console import Console
 from rich.table import Table
 
+from contextcraft.cli.main import _get_embedder, _get_llm
 from contextcraft.config import settings
 from contextcraft.db import chunks_repo
 from contextcraft.db.connection import close_pool, run_migrations
-from contextcraft.embeddings.openai import OpenAIEmbedder
-from contextcraft.llm.openai import OpenAILLM
 from contextcraft.search.hybrid import hybrid_search
 
 logging.basicConfig(level=logging.WARNING)
@@ -32,7 +32,7 @@ TEST_CASES_PATH = Path(__file__).parent / "test_cases.json"
 
 async def llm_judge_faithfulness(question: str, ground_truth: str, generated_answer: str) -> bool:
     """Use an LLM to evaluate if the generated answer covers the ground truth."""
-    llm = OpenAILLM()
+    llm = _get_llm()
     system_prompt = (
         "You are an evaluator for a RAG system. "
         "Your task is to determine if the GENERATED ANSWER successfully provides "
@@ -45,22 +45,24 @@ async def llm_judge_faithfulness(question: str, ground_truth: str, generated_ans
     return "PASS" in response.upper()
 
 
-async def warmup_system(repo_id: int):
+async def warmup_system(repo_id: UUID) -> None:
     """Warm up the connection pool, embedding model, and LLM to prevent cold-start latency."""
     console.print("[dim]Warming up system...[/dim]")
-    embedder = OpenAIEmbedder()
-    llm = OpenAILLM()
+    embedder = _get_embedder()
+    llm = _get_llm()
 
     # Throwaway embedding & hybrid search
     query_emb = await embedder.embed_single("warmup")
-    await hybrid_search(query_emb, "warmup", repo_id, top_k=2)
+    await hybrid_search(query_emb, "warmup", repo_ids=[repo_id], top_k=2)
 
     # Throwaway LLM generation
     await llm.generate("system", "user")
     console.print("[dim]Warm-up complete.[/dim]\n")
 
 
-async def run_evaluation(use_reranker: bool = False, use_deps: bool = False, runs: int = 3):
+async def run_evaluation(
+    use_reranker: bool = False, use_deps: bool = False, runs: int = 3
+) -> None:
     """Run the evaluation suite multiple times to gather stable latency metrics."""
     test_cases = json.loads(TEST_CASES_PATH.read_text())
 
@@ -72,8 +74,8 @@ async def run_evaluation(use_reranker: bool = False, use_deps: bool = False, run
         return
 
     repo_id = repos[0].id
-    embedder = OpenAIEmbedder()
-    llm = OpenAILLM()
+    embedder = _get_embedder()
+    llm = _get_llm()
 
     # Verify expected_sources are independent of the system's current performance
     console.print(
@@ -115,7 +117,7 @@ async def run_evaluation(use_reranker: bool = False, use_deps: bool = False, run
             chunks = await hybrid_search(
                 query_embedding=query_embedding,
                 query_text=question,
-                repo_id=repo_id,
+                repo_ids=[repo_id],
                 top_k=fetch_k,
             )
 
@@ -129,7 +131,7 @@ async def run_evaluation(use_reranker: bool = False, use_deps: bool = False, run
                 from contextcraft.graph.expander import expand_with_deps
                 from contextcraft.models import SearchResult
 
-                dep_chunks = await expand_with_deps([c.chunk.id for c in chunks], repo_id)
+                dep_chunks = await expand_with_deps([c.chunk.id for c in chunks])
                 # Append deps with dummy scores
                 chunks.extend([SearchResult(chunk=dc, score=0.0, rank=100) for dc in dep_chunks])
 

@@ -27,15 +27,18 @@ class Settings(BaseSettings):
     db_max_connections: int = 20  # sized for concurrent indexing + API serving
 
     # --- Embeddings ------------------------------------------------------
+    embedding_provider: str = "gemini"  # "openai" | "gemini"
     openai_api_key: str = ""
-    embedding_model: str = "text-embedding-3-small"
-    embedding_dimensions: int = 1536
+    gemini_api_key: str = ""
+    embedding_model: str = "text-embedding-004"  # Gemini default
+    embedding_dimensions: int = 768  # Gemini text-embedding-004 dim
     embedding_batch_size: int = 100
     embedding_max_concurrent: int = 5
 
     # --- LLM -------------------------------------------------------------
-    llm_provider: str = "openai"  # "openai" | "anthropic" | "ollama"
+    llm_provider: str = "gemini"  # "openai" | "anthropic" | "ollama" | "gemini"
     openai_chat_model: str = "gpt-4o"
+    gemini_chat_model: str = "gemini-1.5-flash"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
     ollama_base_url: str = "http://localhost:11434"
