@@ -347,8 +347,11 @@ async def _index_async(
 @app.command()
 def ask(
     question: str = typer.Argument(..., help="Question to ask about the codebase"),
-    repo: str = typer.Option(
-        None, "--repo", "-r", help="Repository path or name to scope the query"
+    repos: str = typer.Option(
+        None, "--repos", "-r", help="Comma-separated repository paths or names to scope the query"
+    ),
+    all_repos: bool = typer.Option(
+        False, "--all-repos", help="Search across all indexed repositories"
     ),
     top_k: int = typer.Option(None, "--top-k", "-k", help="Number of code chunks to retrieve"),
     no_rerank: bool = typer.Option(
@@ -359,11 +362,16 @@ def ask(
     ),
 ) -> None:
     """Ask a question about an indexed codebase."""
-    asyncio.run(_ask_async(question, repo, top_k, no_rerank, with_deps))
+    asyncio.run(_ask_async(question, repos, all_repos, top_k, no_rerank, with_deps))
 
 
 async def _ask_async(
-    question: str, repo: str | None, top_k: int | None, no_rerank: bool, with_deps: bool
+    question: str,
+    repos_arg: str | None,
+    all_repos: bool,
+    top_k: int | None,
+    no_rerank: bool,
+    with_deps: bool,
 ) -> None:
     top_k = top_k or settings.search_top_k
 
@@ -378,27 +386,34 @@ async def _ask_async(
         await close_pool()
         raise typer.Exit(1)
 
-    target_repo = None
-    if repo:
-        for r in repos:
-            if r.name == repo or r.local_path == repo or str(r.id) == repo:
-                target_repo = r
-                break
-        if not target_repo:
-            console.print(f"[red]Repository '{repo}' not found.[/red]")
+    target_repos = []
+    if all_repos:
+        target_repos = repos
+    elif repos_arg:
+        requested = [r.strip() for r in repos_arg.split(",")]
+        for rid in requested:
+            found = next((r for r in repos if str(r.id) == rid or r.name == rid), None)
+            if found:
+                target_repos.append(found)
+        if not target_repos:
+            console.print("[red]None of the requested repositories were found.[/red]")
             await close_pool()
             raise typer.Exit(1)
     else:
-        target_repo = repos[0]
+        target_repos = [repos[0]]
         if len(repos) > 1:
             console.print(
-                f"[dim]Multiple repos indexed — using '{target_repo.name}'. "
-                f"Use --repo to specify.[/dim]"
+                f"[dim]Multiple repos indexed — using '{target_repos[0].name}'. "
+                f"Use --repos to specify.[/dim]"
             )
 
+    target_repo_ids = [r.id for r in target_repos]
+    primary_repo_path = target_repos[0].local_path
+
+    repo_names = ", ".join(f"[cyan]{r.name}[/cyan]" for r in target_repos)
+    chunk_count = sum(r.chunk_count for r in target_repos)
     console.print(
-        f"\n[bold blue]ContextCraft[/bold blue] — "
-        f"Searching [cyan]{target_repo.name}[/cyan] ({target_repo.chunk_count} chunks)\n"
+        f"\n[bold blue]ContextCraft[/bold blue] — Searching {repo_names} ({chunk_count} chunks)\n"
     )
 
     # Embed the question
@@ -419,7 +434,7 @@ async def _ask_async(
         results = await hybrid_search(
             query_embedding=query_embedding,
             query_text=question,
-            repo_id=target_repo.id,
+            repo_ids=target_repo_ids,
             top_k=fetch_k,
         )
 
@@ -458,7 +473,7 @@ async def _ask_async(
     # Build context
     context = build_context(
         results,
-        repo_path=target_repo.local_path,
+        repo_path=primary_repo_path,
         expand_deps=with_deps,
         dep_chunks=dep_results,
     )

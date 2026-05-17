@@ -5,9 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] — 2026-05-17
+## [0.3.0] — 2026-05-17
 
 ### Added
+- **Dependency Graph** (`chunk_edges` table) — Static analyzer that resolves direct Python imports and class inheritance, mapping them to source and target chunk IDs with confidence scores.
+- **Context Expansion** — Expands LLM context with 1-hop dependencies via recursive SQL query with cycle-guard. Adds `--with-deps` CLI flag and `expand_deps` API parameter.
+- **Ollama LLM Provider** (`qwen2.5-coder:7b`) — Built-in `OllamaLLM` integration via `/api/chat` with `/api/tags` connection verification and streaming support.
+- **Multi-Repo Search** — `hybrid_search` now performs Reciprocal Rank Fusion (RRF) normalization per-repo independently before merging, preventing large repos from drowning out small ones.
+- **Multi-Repo Web UI** — `page.tsx` now uses a custom native HTML `<details>` dropdown for multi-selecting repos, plus a checkbox to toggle "Expand Graph Context".
+- **Multi-Repo CLI/API** — Added `--repos` (comma-separated) and `--all-repos` CLI flags, and `repo_ids`/`all_repos` to the `/ask` endpoint schema.
+- **Testing** — Added `tests/fixtures/import_ground_truth.txt` and `test_graph.py` to ensure high-fidelity edge generation. Integrated `@pytest.mark.unit` via ECC rules.
+
+## [0.2.0] — 2026-05-17### Added
 - **Cohere Reranker** (`rerank-english-v3.0`) — cross-encoder reranking via `reranker/` module with abstract `BaseReranker` interface. Increases retrieval pool to 60 candidates, reranks down to requested `top_k`.
 - **`--no-rerank` CLI flag** on `contextcraft ask` to bypass reranking when speed is preferred over precision.
 - **Reranker in FastAPI** — `/ask` endpoint automatically reranks when `CONTEXTCRAFT_COHERE_API_KEY` is set.

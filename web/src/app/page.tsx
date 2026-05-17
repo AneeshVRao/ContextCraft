@@ -8,7 +8,9 @@ import { Send, Bot, Database, Server, Terminal, Layers } from "lucide-react";
 
 export default function Home() {
   const [repos, setRepos] = useState<Repo[]>([]);
-  const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null);
+  const [selectedRepoIds, setSelectedRepoIds] = useState<string[]>([]);
+  const [allRepos, setAllRepos] = useState(false);
+  const [expandDeps, setExpandDeps] = useState(false);
   
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
@@ -30,7 +32,7 @@ export default function Home() {
           const data = await res.json();
           setRepos(data);
           if (data.length > 0) {
-            setSelectedRepoId(data[0].id);
+            setSelectedRepoIds([data[0].id]);
           }
         }
       } catch (e) {
@@ -47,7 +49,7 @@ export default function Home() {
 
   const handleAsk = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!question.trim() || !selectedRepoId) return;
+    if (!question.trim() || (selectedRepoIds.length === 0 && !allRepos)) return;
 
     setCurrentQuery(question);
     setQuestion("");
@@ -62,8 +64,10 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: question,
-          repo_id: selectedRepoId,
+          repo_ids: selectedRepoIds,
+          all_repos: allRepos,
           top_k: 10,
+          expand_deps: expandDeps,
         }),
       });
 
@@ -112,7 +116,8 @@ export default function Home() {
     }
   };
 
-  const selectedRepo = repos.find(r => r.id === selectedRepoId);
+  const selectedRepos = repos.filter(r => selectedRepoIds.includes(r.id));
+  const activeCount = allRepos ? repos.length : selectedRepoIds.length;
 
   return (
     <main className={styles.main}>
@@ -123,23 +128,52 @@ export default function Home() {
         </div>
         
         <div className={styles.repoSelector}>
+          <label className={styles.statusItem} style={{ marginRight: '8px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={expandDeps} 
+              onChange={(e) => setExpandDeps(e.target.checked)} 
+              style={{ marginRight: '4px' }}
+            />
+            Expand Graph Context
+          </label>
           <Database size={16} className="text-text-tertiary" />
-          <select 
-            className={styles.select}
-            value={selectedRepoId || ""}
-            onChange={(e) => setSelectedRepoId(Number(e.target.value))}
-            disabled={repos.length === 0}
-          >
-            {repos.length === 0 ? (
-              <option value="">No repositories indexed</option>
-            ) : (
-              repos.map(r => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r.chunk_count} chunks)
-                </option>
-              ))
-            )}
-          </select>
+          <details className={styles.multiSelectDropdown}>
+            <summary className={styles.select} style={{ cursor: 'pointer' }}>
+              {activeCount === 0 ? "Select Repositories..." : 
+               allRepos ? "All Repositories" :
+               activeCount === 1 ? selectedRepos[0]?.name : `${activeCount} Repositories`}
+            </summary>
+            <div className={styles.dropdownMenu}>
+              <label className={styles.dropdownItem}>
+                <input 
+                  type="checkbox" 
+                  checked={allRepos} 
+                  onChange={(e) => setAllRepos(e.target.checked)} 
+                />
+                <strong>All Repositories</strong>
+              </label>
+              <hr className={styles.dropdownDivider} />
+              {repos.length === 0 ? (
+                <div className={styles.dropdownItem}>No repositories indexed</div>
+              ) : (
+                repos.map(r => (
+                  <label key={r.id} className={styles.dropdownItem}>
+                    <input 
+                      type="checkbox" 
+                      checked={allRepos || selectedRepoIds.includes(r.id)} 
+                      disabled={allRepos}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedRepoIds([...selectedRepoIds, r.id]);
+                        else setSelectedRepoIds(selectedRepoIds.filter(id => id !== r.id));
+                      }} 
+                    />
+                    {r.name} ({r.chunk_count} chunks)
+                  </label>
+                ))
+              )}
+            </div>
+          </details>
         </div>
       </header>
 
@@ -198,12 +232,12 @@ export default function Home() {
           placeholder="Ask a question about the codebase..."
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          disabled={isAsking || repos.length === 0}
+          disabled={isAsking || activeCount === 0}
         />
         <button 
           type="submit" 
           className={styles.sendButton}
-          disabled={!question.trim() || isAsking || repos.length === 0}
+          disabled={!question.trim() || isAsking || activeCount === 0}
         >
           <Send size={16} />
         </button>
@@ -212,11 +246,13 @@ export default function Home() {
       <footer className={styles.statusBar}>
         <div className={styles.statusItem}>
           <Server size={12} />
-          {selectedRepo ? `Connected to ${selectedRepo.name}` : "Not connected"}
+          {activeCount > 0 ? `Connected to ${activeCount} repo(s)` : "Not connected"}
         </div>
         <div className={styles.statusItem}>
           <Database size={12} />
-          {selectedRepo ? `${selectedRepo.chunk_count} chunks indexed` : "0 chunks"}
+          {allRepos 
+            ? `${repos.reduce((acc, r) => acc + r.chunk_count, 0)} chunks total` 
+            : `${selectedRepos.reduce((acc, r) => acc + r.chunk_count, 0)} chunks selected`}
         </div>
         <div className={styles.statusItem}>
           ContextCraft v0.1.0 UI

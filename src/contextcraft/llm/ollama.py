@@ -55,13 +55,11 @@ class OllamaLLM(BaseLLM):
                 resp.raise_for_status()
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
             raise OllamaConnectionError(
-                f"Ollama not running at {self._base_url}. "
-                "Start it with: ollama serve"
+                f"Ollama not running at {self._base_url}. Start it with: ollama serve"
             ) from exc
         except httpx.HTTPStatusError as exc:
             raise OllamaConnectionError(
-                f"Ollama returned HTTP {exc.response.status_code}. "
-                "Check your Ollama installation."
+                f"Ollama returned HTTP {exc.response.status_code}. Check your Ollama installation."
             ) from exc
 
         # Check if the model is available
@@ -100,14 +98,15 @@ class OllamaLLM(BaseLLM):
             )
             resp.raise_for_status()
             data = resp.json()
-            return data.get("message", {}).get("content", "")
+            return str(data.get("message", {}).get("content", ""))
 
     async def stream(self, system_prompt: str, user_message: str) -> AsyncIterator[str]:
         """Yield response tokens as they arrive from Ollama."""
         await self._verify_connection()
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream(
+        async with (
+            httpx.AsyncClient(timeout=120.0) as client,
+            client.stream(
                 "POST",
                 f"{self._base_url}/api/chat",
                 json={
@@ -119,19 +118,20 @@ class OllamaLLM(BaseLLM):
                     "stream": True,
                     "options": {"temperature": 0.1},
                 },
-            ) as resp:
-                resp.raise_for_status()
-                import json
+            ) as resp,
+        ):
+            resp.raise_for_status()
+            import json
 
-                async for line in resp.aiter_lines():
-                    if not line.strip():
-                        continue
-                    try:
-                        chunk = json.loads(line)
-                        content = chunk.get("message", {}).get("content", "")
-                        if content:
-                            yield content
-                        if chunk.get("done", False):
-                            break
-                    except json.JSONDecodeError:
-                        continue
+            async for line in resp.aiter_lines():
+                if not line.strip():
+                    continue
+                try:
+                    chunk = json.loads(line)
+                    content = chunk.get("message", {}).get("content", "")
+                    if content:
+                        yield content
+                    if chunk.get("done", False):
+                        break
+                except json.JSONDecodeError:
+                    continue

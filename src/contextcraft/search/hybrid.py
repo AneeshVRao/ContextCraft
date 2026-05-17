@@ -21,34 +21,13 @@ logger = logging.getLogger(__name__)
 RRF_K = 60  # Standard RRF constant
 
 
-async def hybrid_search(
+async def _search_one_repo(
     query_embedding: list[float],
     query_text: str,
     repo_id: UUID,
     top_k: int = 10,
 ) -> list[SearchResult]:
-    """Run hybrid vector + BM25 search with RRF fusion.
-
-    Executes the full RRF query in a single SQL statement for efficiency:
-    both the vector ranking and the BM25 ranking are computed in CTEs,
-    then fused with RRF scoring.
-
-    Parameters
-    ----------
-    query_embedding:
-        Embedding vector for the query.
-    query_text:
-        Raw query text for full-text search.
-    repo_id:
-        Scope to a specific repository.
-    top_k:
-        Number of final results to return.
-
-    Returns
-    -------
-    list[SearchResult]
-        Ranked chunks with RRF scores.
-    """
+    """Execute the full RRF query in a single SQL statement for one repo."""
     pool = await get_pool()
     vec_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
@@ -108,10 +87,61 @@ async def hybrid_search(
                 rank=rank_idx,
             )
         )
+    return results
+
+
+async def hybrid_search(
+    query_embedding: list[float],
+    query_text: str,
+    repo_ids: list[UUID],
+    top_k: int = 10,
+) -> list[SearchResult]:
+    """Run hybrid vector + BM25 search with per-repo RRF fusion.
+
+    Computes RRF scores independently within each repo to prevent large repos
+    from dominating the rank positions, then merges the per-repo top-K lists.
+
+    Parameters
+    ----------
+    query_embedding:
+        Embedding vector for the query.
+    query_text:
+        Raw query text for full-text search.
+    repo_ids:
+        List of repositories to search across.
+    top_k:
+        Number of final results to return.
+
+    Returns
+    -------
+    list[SearchResult]
+        Ranked chunks merged across repos.
+    """
+    if not repo_ids:
+        return []
+
+    # Fetch RRF-ranked results for each repo independently
+    all_results: list[SearchResult] = []
+    for repo_id in repo_ids:
+        repo_results = await _search_one_repo(
+            query_embedding=query_embedding,
+            query_text=query_text,
+            repo_id=repo_id,
+            top_k=top_k,  # fetch full top_k per repo so we have enough candidates
+        )
+        all_results.extend(repo_results)
+
+    # Sort merged results by RRF score descending
+    all_results.sort(key=lambda sr: sr.score, reverse=True)
+
+    # Take global top K and reassign ranks
+    final_results = all_results[:top_k]
+    for i, sr in enumerate(final_results, start=1):
+        sr.rank = i
 
     logger.info(
-        "Hybrid search returned %d results (query: '%s…')",
-        len(results),
+        "Hybrid search returned %d cross-repo results (query: '%s…')",
+        len(final_results),
         query_text[:50],
     )
-    return results
+    return final_results

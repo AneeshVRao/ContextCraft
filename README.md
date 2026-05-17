@@ -13,12 +13,13 @@
 ContextCraft turns your codebase into a searchable knowledge base:
 
 1. **Parses** your code with [tree-sitter](https://tree-sitter.github.io/) — extracts functions, classes, and modules as semantic chunks (not naive fixed-size splits)
-2. **Enriches** each chunk with git blame (who wrote it, when) and commit history
-3. **Embeds** chunks with OpenAI `text-embedding-3-small` and stores them in PostgreSQL + pgvector
-4. **Searches** using hybrid Reciprocal Rank Fusion (RRF) — combining vector similarity and full-text search
-5. **Reranks** top candidates with [Cohere](https://cohere.com/) cross-encoder (`rerank-english-v3.0`) for precision
-6. **Answers** your questions with an LLM, grounded in real code with file paths and line numbers
-7. **Streams** answers via SSE to both the CLI and a sleek Next.js web interface
+2. **Builds a Graph** — Resolves Python imports and inheritance to understand cross-file dependencies
+3. **Enriches** each chunk with git blame (who wrote it, when) and commit history
+4. **Embeds** chunks with OpenAI `text-embedding-3-small` and stores them in PostgreSQL + pgvector
+5. **Searches** using hybrid Reciprocal Rank Fusion (RRF) — combining vector similarity and full-text search across **multiple repositories**
+6. **Reranks** top candidates with [Cohere](https://cohere.com/) cross-encoder (`rerank-english-v3.0`) for precision
+7. **Answers** your questions with an LLM (OpenAI, Anthropic, or **local Ollama**), grounded in real code with file paths and line numbers
+8. **Streams** answers via SSE to both the CLI and a sleek Next.js web interface
 
 ## 60-Second Setup
 
@@ -108,10 +109,17 @@ contextcraft index ./my-project --skip-embeddings
 Ask a question about indexed code. Streams the answer to your terminal.
 
 ```bash
-contextcraft ask "How does the user authentication flow work?"
-contextcraft ask "What tests cover the payment module?" --repo my-project
-contextcraft ask "Explain the database schema" --top-k 15
-contextcraft ask "How does search work?" --no-rerank
+# Basic query across all repos
+contextcraft ask "Where is the authentication middleware?" --all-repos
+
+# Query scoped to specific repos
+contextcraft ask "How does the caching layer work?" --repos repo-a,repo-b
+
+# Expand context with 1-hop dependencies
+contextcraft ask "How do I instantiate the Database client?" --with-deps
+
+# Use local models for privacy
+CONTEXTCRAFT_LLM_PROVIDER=ollama contextcraft ask "Explain this function"
 ```
 
 ### `contextcraft status`

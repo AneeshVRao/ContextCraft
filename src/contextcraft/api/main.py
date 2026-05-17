@@ -72,7 +72,8 @@ class IndexRequest(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
-    repo_id: str | None = None
+    repo_ids: list[str] | None = None
+    all_repos: bool = False
     top_k: int = 10
     expand_deps: bool = False
 
@@ -151,35 +152,49 @@ async def ask_question(request: AskRequest) -> EventSourceResponse:
     """Ask a question about an indexed codebase (SSE streaming)."""
     if not settings.openai_api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
-
     # Find repository
     repos = await chunks_repo.list_repositories()
     if not repos:
         raise HTTPException(status_code=404, detail="No repositories indexed")
 
-    target_repo = None
-    if request.repo_id:
-        for r in repos:
-            if str(r.id) == request.repo_id or r.name == request.repo_id:
-                target_repo = r
-                break
-        if not target_repo:
-            raise HTTPException(status_code=404, detail="Repository not found")
+    target_repos = []
+    if request.all_repos:
+        target_repos = repos
+    elif request.repo_ids:
+        # Resolve requested IDs/names
+        for rid in request.repo_ids:
+            found = next((r for r in repos if str(r.id) == rid or r.name == rid), None)
+            if found:
+                target_repos.append(found)
+        if not target_repos:
+            raise HTTPException(
+                status_code=404, detail="None of the requested repositories were found"
+            )
     else:
-        target_repo = repos[0]
+        # Default: most recently indexed repo
+        target_repos = [repos[0]]
+
+    target_repo_ids = [r.id for r in target_repos]
+    # We use the first repo's path for disk context, as cross-repo disk context
+    # gets complicated (would need to track which repo each chunk came from).
+    # In a full cross-repo implementation, we'd add repo_path to CodeChunk.
+    primary_repo_path = target_repos[0].local_path
 
     # Embed query
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+
     embedder = OpenAIEmbedder()
     query_embedding = await embedder.embed_single(request.question)
 
-    # Hybrid search
+    # Search
     use_reranker = settings.rerank_enabled and bool(settings.cohere_api_key)
     fetch_k = 20 if use_reranker else request.top_k
 
     results = await hybrid_search(
         query_embedding=query_embedding,
         query_text=request.question,
-        repo_id=target_repo.id,
+        repo_ids=target_repo_ids,
         top_k=fetch_k,
     )
 
@@ -212,7 +227,7 @@ async def ask_question(request: AskRequest) -> EventSourceResponse:
     # Build context
     context = build_context(
         results,
-        repo_path=target_repo.local_path,
+        repo_path=primary_repo_path,
         expand_deps=request.expand_deps,
         dep_chunks=dep_results,
     )
