@@ -21,6 +21,9 @@ ContextCraft turns your codebase into a searchable knowledge base:
 7. **Answers** your questions with an LLM (OpenAI, Anthropic, or **local Ollama**), grounded in real code with file paths and line numbers
 8. **Streams** answers via SSE to both the CLI and a sleek Next.js web interface
 
+## Evaluation & Benchmarks
+We don't just guess that the system works — we measure it. See [BENCHMARK.md](BENCHMARK.md) for hard numbers on our Reciprocal Rank Fusion (RRF), Cohere reranking, and Dependency Graph configurations, including **Source Hit Rate** and **P50/P95 Latency**.
+
 ## 60-Second Setup
 
 ### Prerequisites
