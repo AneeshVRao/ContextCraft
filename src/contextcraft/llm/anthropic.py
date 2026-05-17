@@ -37,9 +37,7 @@ class AnthropicLLM(BaseLLM):
             return str(content_block.text)
         return str(content_block)
 
-    async def stream(
-        self, system_prompt: str, user_message: str
-    ) -> AsyncIterator[str]:
+    async def stream(self, system_prompt: str, user_message: str) -> AsyncIterator[str]:
         async with self._client.messages.stream(
             model=self._model,
             max_tokens=4096,

@@ -9,7 +9,7 @@ from contextcraft.models import SearchResult
 
 class BaseReranker(abc.ABC):
     """Abstract interface for rerankers.
-    
+
     A reranker takes an initial set of retrieved chunks (usually from a
     fast bi-encoder or BM25 retrieval) and re-scores them using a
     more accurate cross-encoder model that evaluates the query and chunk

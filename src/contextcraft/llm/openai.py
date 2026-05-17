@@ -35,9 +35,7 @@ class OpenAILLM(BaseLLM):
         )
         return response.choices[0].message.content or ""
 
-    async def stream(
-        self, system_prompt: str, user_message: str
-    ) -> AsyncIterator[str]:
+    async def stream(self, system_prompt: str, user_message: str) -> AsyncIterator[str]:
         response = await self._client.chat.completions.create(
             model=self._model,
             messages=[

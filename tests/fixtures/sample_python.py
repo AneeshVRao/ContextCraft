@@ -11,6 +11,7 @@ from pathlib import Path
 # Top-level function
 # ---------------------------------------------------------------------------
 
+
 def greet(name: str) -> str:
     """Return a greeting string."""
     return f"Hello, {name}!"
@@ -24,6 +25,7 @@ def add(a: int, b: int) -> int:
 # ---------------------------------------------------------------------------
 # Class with methods
 # ---------------------------------------------------------------------------
+
 
 class Calculator:
     """A simple calculator class."""
@@ -49,6 +51,7 @@ class Calculator:
 # ---------------------------------------------------------------------------
 # Another top-level function
 # ---------------------------------------------------------------------------
+
 
 def process_file(path: str, encoding: str = "utf-8") -> str | None:
     """Read a file and return its content, or None on error."""

@@ -95,7 +95,7 @@ def _node_name(node: Node, language: Language) -> str:
 
 def _node_text(node: Node, source_bytes: bytes) -> str:
     """Return the source text covered by *node*."""
-    return source_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+    return source_bytes[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
 
 
 def _extract_imports_python(root_node: Node, source_bytes: bytes) -> list[str]:
@@ -103,9 +103,7 @@ def _extract_imports_python(root_node: Node, source_bytes: bytes) -> list[str]:
     imports: list[str] = []
     for child in root_node.children:
         if child.type in ("import_statement", "import_from_statement"):
-            imports.append(
-                source_bytes[child.start_byte:child.end_byte].decode("utf-8").strip()
-            )
+            imports.append(source_bytes[child.start_byte : child.end_byte].decode("utf-8").strip())
     return imports
 
 

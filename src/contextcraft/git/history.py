@@ -45,10 +45,12 @@ def get_file_history(
     try:
         result = subprocess.run(
             [
-                "git", "log",
+                "git",
+                "log",
                 f"-n{max_commits}",
                 f"--pretty=format:{fmt}",
-                "--", file_path,
+                "--",
+                file_path,
             ],
             cwd=str(repo_path),
             capture_output=True,

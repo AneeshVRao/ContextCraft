@@ -81,7 +81,9 @@ def build_context(
         if token_count + section_tokens > max_tokens:
             logger.info(
                 "Context budget exhausted at %d/%d tokens (%d chunks used)",
-                token_count, max_tokens, len(sections),
+                token_count,
+                max_tokens,
+                len(sections),
             )
             break
 

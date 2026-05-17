@@ -34,7 +34,7 @@ _background_tasks: set[asyncio.Task[Any]] = set()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI): # type: ignore
+async def lifespan(app: FastAPI):  # type: ignore
     """Startup: connect to DB and run migrations.  Shutdown: close pool."""
     await run_migrations()
     yield
@@ -111,9 +111,7 @@ async def list_repos() -> list[RepoResponse]:
             local_path=r.local_path,
             languages=[lang.value for lang in r.languages],
             chunk_count=r.chunk_count,
-            last_indexed_at=(
-                r.last_indexed_at.isoformat() if r.last_indexed_at else None
-            ),
+            last_indexed_at=(r.last_indexed_at.isoformat() if r.last_indexed_at else None),
         )
         for r in repos
     ]
@@ -189,6 +187,7 @@ async def ask_question(request: AskRequest) -> EventSourceResponse:
     # Rerank
     if use_reranker:
         from contextcraft.reranker.cohere import CohereReranker
+
         reranker = CohereReranker()
         results = await reranker.rerank(request.question, results, request.top_k)
 
@@ -212,6 +211,7 @@ Be concise but thorough. Use markdown formatting."""
         llm: OpenAILLM | AnthropicLLM
         if settings.llm_provider == "anthropic":
             from contextcraft.llm.anthropic import AnthropicLLM
+
             llm = AnthropicLLM()
         else:
             llm = OpenAILLM()

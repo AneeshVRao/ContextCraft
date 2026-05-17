@@ -15,15 +15,13 @@ logger = logging.getLogger(__name__)
 
 class CohereReranker(BaseReranker):
     """Reranker using Cohere's API.
-    
+
     Requires CONTEXTCRAFT_COHERE_API_KEY to be set.
     """
 
     def __init__(self) -> None:
         if not settings.cohere_api_key:
-            raise ValueError(
-                "CONTEXTCRAFT_COHERE_API_KEY must be set to use CohereReranker"
-            )
+            raise ValueError("CONTEXTCRAFT_COHERE_API_KEY must be set to use CohereReranker")
         self.client = cohere.AsyncClient(api_key=settings.cohere_api_key)
         self.model = settings.rerank_model
 
@@ -69,7 +67,9 @@ class CohereReranker(BaseReranker):
                     )
                 )
 
-            logger.info("Cohere reranked %d candidates down to %d", len(results), len(reranked_results))
+            logger.info(
+                "Cohere reranked %d candidates down to %d", len(results), len(reranked_results)
+            )
             return reranked_results
 
         except Exception as e:

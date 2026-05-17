@@ -74,10 +74,13 @@ async def get_pool() -> asyncpg.Pool:
 
         except (asyncpg.PostgresError, OSError) as exc:
             last_exc = exc
-            wait = min(2 ** attempt, 16)
+            wait = min(2**attempt, 16)
             logger.warning(
                 "DB connection failed (attempt %d/%d): %s — retrying in %ds",
-                attempt, 5, exc, wait,
+                attempt,
+                5,
+                exc,
+                wait,
             )
             await asyncio.sleep(wait)
 

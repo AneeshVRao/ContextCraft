@@ -57,7 +57,11 @@ class TestParsePython:
         assert len(self.chunks) > 0
 
     def test_finds_top_level_functions(self):
-        names = {c.name for c in self.chunks if c.chunk_type == ChunkType.FUNCTION and c.parent_name is None}
+        names = {
+            c.name
+            for c in self.chunks
+            if c.chunk_type == ChunkType.FUNCTION and c.parent_name is None
+        }
         assert "greet" in names
         assert "add" in names
         assert "process_file" in names
@@ -69,7 +73,8 @@ class TestParsePython:
 
     def test_finds_methods(self):
         methods = [
-            c for c in self.chunks
+            c
+            for c in self.chunks
             if c.chunk_type == ChunkType.FUNCTION and c.parent_name == "Calculator"
         ]
         method_names = {m.name for m in methods}
@@ -128,7 +133,8 @@ class TestParseJavaScript:
 
     def test_finds_methods(self):
         methods = [
-            c for c in self.chunks
+            c
+            for c in self.chunks
             if c.chunk_type == ChunkType.FUNCTION and c.parent_name == "Calculator"
         ]
         assert len(methods) >= 2  # constructor, add, subtract
@@ -189,7 +195,8 @@ class TestParseTypeScript:
 
     def test_finds_methods(self):
         methods = [
-            c for c in self.chunks
+            c
+            for c in self.chunks
             if c.chunk_type == ChunkType.FUNCTION and c.parent_name == "AuthService"
         ]
         method_names = {m.name for m in methods}
@@ -229,4 +236,3 @@ class TestParseGo:
     def test_correct_language(self):
         for chunk in self.chunks:
             assert chunk.language == Language.GO
-

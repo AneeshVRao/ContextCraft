@@ -36,19 +36,14 @@ class OpenAIEmbedder(BaseEmbedder):
         self._client = AsyncOpenAI(api_key=api_key or settings.openai_api_key)
         self._model = model or settings.embedding_model
         self._batch_size = batch_size or settings.embedding_batch_size
-        self._semaphore = asyncio.Semaphore(
-            max_concurrent or settings.embedding_max_concurrent
-        )
+        self._semaphore = asyncio.Semaphore(max_concurrent or settings.embedding_max_concurrent)
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed texts in batches, respecting concurrency limits."""
         if not texts:
             return []
 
-        batches = [
-            texts[i : i + self._batch_size]
-            for i in range(0, len(texts), self._batch_size)
-        ]
+        batches = [texts[i : i + self._batch_size] for i in range(0, len(texts), self._batch_size)]
 
         all_embeddings: list[list[float]] = []
         for batch in batches:

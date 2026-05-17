@@ -60,9 +60,7 @@ async def upsert_repository(
 async def get_repository_by_path(local_path: str) -> Repository | None:
     """Find a repository by its local filesystem path."""
     pool = await get_pool()
-    row = await pool.fetchrow(
-        "SELECT * FROM repositories WHERE local_path = $1", local_path
-    )
+    row = await pool.fetchrow("SELECT * FROM repositories WHERE local_path = $1", local_path)
     return _row_to_repository(row) if row else None
 
 
@@ -83,12 +81,8 @@ async def list_repositories() -> list[Repository]:
 async def update_chunk_count(repo_id: UUID) -> int:
     """Recount chunks and update the repository record.  Returns the new count."""
     pool = await get_pool()
-    count = await pool.fetchval(
-        "SELECT COUNT(*) FROM code_chunks WHERE repo_id = $1", repo_id
-    )
-    await pool.execute(
-        "UPDATE repositories SET chunk_count = $1 WHERE id = $2", count, repo_id
-    )
+    count = await pool.fetchval("SELECT COUNT(*) FROM code_chunks WHERE repo_id = $1", repo_id)
+    await pool.execute("UPDATE repositories SET chunk_count = $1 WHERE id = $2", count, repo_id)
     return int(count)
 
 
@@ -200,9 +194,7 @@ async def delete_chunks_by_file(repo_id: UUID, file_path: str) -> int:
 async def delete_chunks_by_repo(repo_id: UUID) -> int:
     """Delete all chunks for a repository.  Returns deleted count."""
     pool = await get_pool()
-    result = await pool.execute(
-        "DELETE FROM code_chunks WHERE repo_id = $1", repo_id
-    )
+    result = await pool.execute("DELETE FROM code_chunks WHERE repo_id = $1", repo_id)
     count = int(result.split()[-1])
     logger.info("Deleted %d chunks for repo %s", count, repo_id)
     return count

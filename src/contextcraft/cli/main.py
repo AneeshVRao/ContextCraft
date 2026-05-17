@@ -169,9 +169,7 @@ def index(
     skip_embeddings: bool = typer.Option(
         False, "--skip-embeddings", help="Parse and store chunks without computing embeddings"
     ),
-    skip_git: bool = typer.Option(
-        False, "--skip-git", help="Skip git blame and history"
-    ),
+    skip_git: bool = typer.Option(False, "--skip-git", help="Skip git blame and history"),
 ) -> None:
     """Index a codebase: parse → git blame → embed → store."""
     asyncio.run(_index_async(Path(repo_path).resolve(), incremental, skip_embeddings, skip_git))
@@ -204,8 +202,7 @@ async def _index_async(
         changed = _get_changed_files(repo_path, repo.last_commit_hash)
         if changed is not None:
             files_to_process = [
-                f for f in all_files
-                if str(f.relative_to(repo_path)).replace("\\", "/") in changed
+                f for f in all_files if str(f.relative_to(repo_path)).replace("\\", "/") in changed
             ]
             console.print(
                 f"  [dim]Incremental mode: {len(files_to_process)}/{len(all_files)} files changed[/dim]"
@@ -262,15 +259,15 @@ async def _index_async(
                 file_blame = get_file_blame(repo_path, rel_path)
                 file_hist = get_file_history(repo_path, rel_path)
                 for chunk in chunks:
-                    chunk.git_blame = get_chunk_blame(
-                        file_blame, chunk.start_line, chunk.end_line
-                    )
+                    chunk.git_blame = get_chunk_blame(file_blame, chunk.start_line, chunk.end_line)
                     chunk.commit_history = file_hist
 
             all_chunks.extend(chunks)
             progress.advance(parse_task)
 
-    console.print(f"  Parsed [bold]{len(all_chunks)}[/bold] chunks from {len(files_to_process)} files")
+    console.print(
+        f"  Parsed [bold]{len(all_chunks)}[/bold] chunks from {len(files_to_process)} files"
+    )
 
     # --- Embed ---
     if not skip_embeddings and settings.openai_api_key:
@@ -332,9 +329,7 @@ def ask(
     repo: str = typer.Option(
         None, "--repo", "-r", help="Repository path or name to scope the query"
     ),
-    top_k: int = typer.Option(
-        None, "--top-k", "-k", help="Number of code chunks to retrieve"
-    ),
+    top_k: int = typer.Option(None, "--top-k", "-k", help="Number of code chunks to retrieve"),
     no_rerank: bool = typer.Option(
         False, "--no-rerank", help="Disable Cohere reranker and use pure RRF ranking"
     ),
@@ -351,7 +346,9 @@ async def _ask_async(question: str, repo: str | None, top_k: int | None, no_rera
     # Find the repository
     repos = await chunks_repo.list_repositories()
     if not repos:
-        console.print("[red]No repositories indexed yet.[/red] Run `contextcraft index <path>` first.")
+        console.print(
+            "[red]No repositories indexed yet.[/red] Run `contextcraft index <path>` first."
+        )
         await close_pool()
         raise typer.Exit(1)
 
@@ -380,9 +377,7 @@ async def _ask_async(question: str, repo: str | None, top_k: int | None, no_rera
 
     # Embed the question
     if not settings.openai_api_key:
-        console.print(
-            "[red]CONTEXTCRAFT_OPENAI_API_KEY is required for search.[/red]"
-        )
+        console.print("[red]CONTEXTCRAFT_OPENAI_API_KEY is required for search.[/red]")
         await close_pool()
         raise typer.Exit(1)
 
@@ -411,6 +406,7 @@ async def _ask_async(question: str, repo: str | None, top_k: int | None, no_rera
     if use_reranker:
         with console.status("Reranking…"):
             from contextcraft.reranker.cohere import CohereReranker
+
             reranker = CohereReranker()
             results = await reranker.rerank(question, results, top_k)
 
@@ -472,11 +468,7 @@ async def _status_async() -> None:
 
     for repo in repos:
         langs = ", ".join(lang.value for lang in repo.languages)
-        indexed = (
-            repo.last_indexed_at.strftime("%Y-%m-%d %H:%M")
-            if repo.last_indexed_at
-            else "—"
-        )
+        indexed = repo.last_indexed_at.strftime("%Y-%m-%d %H:%M") if repo.last_indexed_at else "—"
         table.add_row(
             repo.name,
             repo.local_path,
@@ -499,9 +491,11 @@ def _get_llm() -> BaseLLM:
     """Return the configured LLM provider."""
     if settings.llm_provider == "anthropic":
         from contextcraft.llm.anthropic import AnthropicLLM
+
         return AnthropicLLM()
     else:
         from contextcraft.llm.openai import OpenAILLM
+
         return OpenAILLM()
 
 

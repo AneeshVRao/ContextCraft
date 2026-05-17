@@ -97,17 +97,17 @@ def _parse_porcelain(output: str) -> dict[int, LineBlame]:
                     pass
 
         elif line.startswith("author "):
-            current_author = line[len("author "):]
+            current_author = line[len("author ") :]
 
         elif line.startswith("author-time "):
             # Unix timestamp — convert to ISO date
             try:
                 import datetime
 
-                ts = int(line[len("author-time "):])
-                current_date = datetime.datetime.fromtimestamp(
-                    ts, tz=datetime.UTC
-                ).strftime("%Y-%m-%d")
+                ts = int(line[len("author-time ") :])
+                current_date = datetime.datetime.fromtimestamp(ts, tz=datetime.UTC).strftime(
+                    "%Y-%m-%d"
+                )
             except (ValueError, OSError):
                 current_date = ""
 
@@ -134,10 +134,7 @@ def get_chunk_blame(
 
     Returns a dict with the most recent author and commit for the chunk.
     """
-    chunk_blames = [
-        b for line, b in file_blame.items()
-        if start_line <= line <= end_line
-    ]
+    chunk_blames = [b for line, b in file_blame.items() if start_line <= line <= end_line]
     if not chunk_blames:
         return {}
 
