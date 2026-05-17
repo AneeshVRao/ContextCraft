@@ -315,6 +315,26 @@ async def _index_async(
         except Exception as e:
             console.print(f"  [yellow]⚠ HNSW index creation skipped: {e}[/yellow]")
 
+    # --- Resolve dependency graph ---
+    try:
+        from contextcraft.db.graph_repo import insert_edges, run_graph_migration
+        from contextcraft.graph.resolver import build_chunk_registry, resolve_all
+
+        await run_graph_migration()
+        registry = build_chunk_registry(all_chunks)
+        edges = resolve_all(all_chunks, registry)
+        if edges:
+            await insert_edges(edges)
+            console.print(
+                f"  [green]✓[/green] Resolved {len(edges)} dependency edges "
+                f"({sum(1 for e in edges if e.edge_type == 'imports')} imports, "
+                f"{sum(1 for e in edges if e.edge_type == 'inherits')} inherits)"
+            )
+        else:
+            console.print("  [dim]No internal dependency edges found[/dim]")
+    except Exception as e:
+        console.print(f"  [yellow]⚠ Dependency graph skipped: {e}[/yellow]")
+
     console.print(
         f"\n  [bold green]Done![/bold green] Indexed {count} chunks from "
         f"[cyan]{repo_path.name}[/cyan]\n"
