@@ -102,13 +102,13 @@ class CodeChunk(BaseModel):
 
     indexed_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def content_hash(self) -> str:
         """SHA-256 hash of the raw content — used for incremental re-index."""
         return hashlib.sha256(self.content.encode()).hexdigest()
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def token_estimate(self) -> int:
         """Rough token count (chars / 4).  Used for context-window budgeting."""

@@ -89,7 +89,7 @@ async def update_chunk_count(repo_id: UUID) -> int:
     await pool.execute(
         "UPDATE repositories SET chunk_count = $1 WHERE id = $2", count, repo_id
     )
-    return count
+    return int(count)
 
 
 async def delete_repository(repo_id: UUID) -> None:
@@ -146,7 +146,7 @@ async def insert_chunks(chunks: list[CodeChunk]) -> int:
         )
 
     logger.info("Inserted %d chunks", len(records))
-    return int(len(records))
+    return len(records)
 
 
 async def get_chunks_by_repo(repo_id: UUID) -> list[CodeChunk]:

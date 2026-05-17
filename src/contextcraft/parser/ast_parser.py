@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any, cast
 
 import tree_sitter_languages
+from tree_sitter import Node, Parser
 
 from contextcraft.models import (
     EXTENSION_LANGUAGE_MAP,
@@ -61,7 +63,7 @@ def _get_parser(language: Language) -> Parser:
     """Return a tree-sitter ``Parser`` configured for *language*."""
     grammar_name = LANGUAGE_GRAMMAR_MAP[language]
     parser = tree_sitter_languages.get_parser(grammar_name)
-    return parser
+    return cast(Parser, parser)
 
 
 def _get_ts_language(language: Language) -> Any:
@@ -228,7 +230,7 @@ def parse_file(
 
 
 def _walk_node(
-    node,
+    node: Node,
     source_bytes: bytes,
     language: Language,
     rel_path: str,
