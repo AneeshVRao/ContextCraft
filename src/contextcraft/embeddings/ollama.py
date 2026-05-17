@@ -46,4 +46,4 @@ class OllamaEmbedder(BaseEmbedder):
         )
         response.raise_for_status()
         data = response.json()
-        return data["embedding"]
+        return list(data["embedding"])

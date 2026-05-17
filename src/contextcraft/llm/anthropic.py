@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from anthropic import AsyncAnthropic
 
@@ -32,7 +32,10 @@ class AnthropicLLM(BaseLLM):
             messages=[{"role": "user", "content": user_message}],
             temperature=0.1,
         )
-        return response.content[0].text
+        content_block = response.content[0]
+        if hasattr(content_block, "text"):
+            return str(content_block.text)
+        return str(content_block)
 
     async def stream(
         self, system_prompt: str, user_message: str

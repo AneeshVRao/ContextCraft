@@ -12,9 +12,9 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from contextcraft.db.connection import get_pool
 from contextcraft.db.chunks_repo import _row_to_chunk
-from contextcraft.models import CodeChunk, SearchResult
+from contextcraft.db.connection import get_pool
+from contextcraft.models import SearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ async def hybrid_search(
             WHERE repo_id = $2
               AND embedding IS NOT NULL
             ORDER BY embedding <=> $1::vector
-            LIMIT 20
+            LIMIT 60
         ),
         bm25_results AS (
             SELECT id,
@@ -77,7 +77,7 @@ async def hybrid_search(
             WHERE repo_id = $2
               AND to_tsvector('english', content)
                   @@ plainto_tsquery('english', $3)
-            LIMIT 20
+            LIMIT 60
         ),
         rrf AS (
             SELECT COALESCE(v.id, b.id) AS id,

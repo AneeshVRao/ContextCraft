@@ -23,5 +23,18 @@ services:
       retries: 5
     restart: unless-stopped
 
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    container_name: contextcraft-web
+    ports:
+      - "3000:3000"
+    environment:
+      - API_URL=http://contextcraft-api:8000
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
 volumes:
   contextcraft_pgdata:

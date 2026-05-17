@@ -1,0 +1,68 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.sourceCard {
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sourceCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.875rem;
+}
+
+.filePath {
+  font-family: monospace;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.metadata {
+  display: flex;
+  gap: 12px;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.codeContainer {
+  background-color: #0d1117; /* GitHub dark dim */
+  padding: 16px;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.codeContainer pre {
+  margin: 0;
+  font-family: monospace;
+}
+
+.empty {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  font-style: italic;
+}

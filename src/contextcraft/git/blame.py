@@ -106,7 +106,7 @@ def _parse_porcelain(output: str) -> dict[int, LineBlame]:
 
                 ts = int(line[len("author-time "):])
                 current_date = datetime.datetime.fromtimestamp(
-                    ts, tz=datetime.timezone.utc
+                    ts, tz=datetime.UTC
                 ).strftime("%Y-%m-%d")
             except (ValueError, OSError):
                 current_date = ""

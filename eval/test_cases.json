@@ -1,0 +1,52 @@
+[
+  {
+    "question": "How does the RRF merger work?",
+    "expected_sources": ["src/contextcraft/search/hybrid.py"],
+    "ground_truth": "RRF combines scores from vector search and BM25 full-text search by taking the sum of 1 / (60 + rank) for both candidate lists. The entire computation is currently done in a single SQL query."
+  },
+  {
+    "question": "What is the token limit for a single code chunk?",
+    "expected_sources": ["src/contextcraft/config.py", "src/contextcraft/parser/ast_parser.py"],
+    "ground_truth": "The maximum number of tokens for a single chunk is 800 tokens, as defined by max_chunk_tokens in config.py."
+  },
+  {
+    "question": "How is the git blame cache implemented?",
+    "expected_sources": ["src/contextcraft/git/blame.py"],
+    "ground_truth": "Git blame runs once per file rather than per chunk. It uses `git blame -p` (porcelain) and parses the output into a dictionary mapping line numbers to commit hashes."
+  },
+  {
+    "question": "Does the CLI support incremental indexing?",
+    "expected_sources": ["src/contextcraft/cli/main.py"],
+    "ground_truth": "Yes, by passing the --incremental flag, the CLI only re-indexes files changed since the last commit (using git diff HEAD)."
+  },
+  {
+    "question": "What is the role of the BaseReranker?",
+    "expected_sources": ["src/contextcraft/reranker/base.py", "src/contextcraft/reranker/cohere.py"],
+    "ground_truth": "BaseReranker is an abstract interface that takes initial bi-encoder retrieval results and re-scores them. The concrete implementation is CohereReranker."
+  },
+  {
+    "question": "What languages does the AST parser support?",
+    "expected_sources": ["src/contextcraft/parser/ast_parser.py", "src/contextcraft/models.py"],
+    "ground_truth": "The parser uses tree-sitter to support Python, JavaScript, TypeScript, and Go."
+  },
+  {
+    "question": "How are database connections handled to avoid exhaustion?",
+    "expected_sources": ["src/contextcraft/db/connection.py"],
+    "ground_truth": "It uses an asyncpg connection pool with max_size=20 by default. It catches TooManyConnectionsError specifically and fails fast, or uses exponential backoff for general connection errors."
+  },
+  {
+    "question": "What happens if a client disconnects during SSE streaming in the API?",
+    "expected_sources": ["src/contextcraft/api/main.py"],
+    "ground_truth": "The event_generator catches asyncio.CancelledError, logs the disconnection, and stops the stream to prevent silently burning LLM API credits."
+  },
+  {
+    "question": "Which field stores the pgvector embedding?",
+    "expected_sources": ["src/contextcraft/db/migrations/001_init.sql"],
+    "ground_truth": "The embedding is stored in the `embedding` column of type `vector(1536)` in the `code_chunks` table."
+  },
+  {
+    "question": "How are file imports attached to code chunks?",
+    "expected_sources": ["src/contextcraft/parser/ast_parser.py"],
+    "ground_truth": "The parser does an initial pass over the file to extract all import statements, and then attaches this full import list to every chunk generated from that file."
+  }
+]

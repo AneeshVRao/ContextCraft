@@ -39,9 +39,14 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
 
-    # --- Search ----------------------------------------------------------
+    # --- Search & Reranking ----------------------------------------------
     search_top_k: int = 10
     max_context_tokens: int = 20_000
+
+    rerank_enabled: bool = True
+    cohere_api_key: str = ""
+    rerank_model: str = "rerank-english-v3.0"
+    rerank_top_n: int = 8
 
     # --- Indexing --------------------------------------------------------
     max_chunk_tokens: int = 800

@@ -34,6 +34,7 @@ dependencies = [
     "tiktoken>=0.7.0",
     "openai>=1.30.0",
     "anthropic>=0.25.0",
+    "cohere>=5.0.0",
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.30.0",
     "sse-starlette>=2.0",
@@ -61,12 +62,19 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
+ignore = ["E501", "B905", "UP042", "W293"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "asyncpg.*"
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

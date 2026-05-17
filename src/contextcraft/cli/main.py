@@ -10,10 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 from pathlib import Path
-from uuid import UUID
 
+import pathspec
 import typer
 from rich.console import Console
 from rich.progress import (
@@ -25,25 +24,21 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 from rich.table import Table
-from rich.live import Live
-from rich.markdown import Markdown
-
-import pathspec
 
 from contextcraft.config import settings
+from contextcraft.db import chunks_repo
+from contextcraft.db.connection import close_pool, run_migrations
+from contextcraft.embeddings.openai import OpenAIEmbedder
+from contextcraft.git.blame import get_chunk_blame, get_file_blame
+from contextcraft.git.history import get_file_history
+from contextcraft.llm.base import BaseLLM
 from contextcraft.models import (
-    EXTENSION_LANGUAGE_MAP,
     CodeChunk,
     Language,
 )
 from contextcraft.parser.ast_parser import detect_language, parse_file
-from contextcraft.git.blame import get_file_blame, get_chunk_blame
-from contextcraft.git.history import get_file_history
-from contextcraft.db.connection import get_pool, close_pool, run_migrations
-from contextcraft.db import chunks_repo
-from contextcraft.embeddings.openai import OpenAIEmbedder
-from contextcraft.search.hybrid import hybrid_search
 from contextcraft.search.context_builder import build_context, format_sources
+from contextcraft.search.hybrid import hybrid_search
 
 app = typer.Typer(
     name="contextcraft",
@@ -340,12 +335,15 @@ def ask(
     top_k: int = typer.Option(
         None, "--top-k", "-k", help="Number of code chunks to retrieve"
     ),
+    no_rerank: bool = typer.Option(
+        False, "--no-rerank", help="Disable Cohere reranker and use pure RRF ranking"
+    ),
 ) -> None:
     """Ask a question about an indexed codebase."""
-    asyncio.run(_ask_async(question, repo, top_k))
+    asyncio.run(_ask_async(question, repo, top_k, no_rerank))
 
 
-async def _ask_async(question: str, repo: str | None, top_k: int | None) -> None:
+async def _ask_async(question: str, repo: str | None, top_k: int | None, no_rerank: bool) -> None:
     top_k = top_k or settings.search_top_k
 
     await run_migrations()
@@ -393,18 +391,28 @@ async def _ask_async(question: str, repo: str | None, top_k: int | None) -> None
         query_embedding = await embedder.embed_single(question)
 
     # Search
+    use_reranker = settings.rerank_enabled and not no_rerank and bool(settings.cohere_api_key)
+    fetch_k = 20 if use_reranker else top_k
+
     with console.status("Searching…"):
         results = await hybrid_search(
             query_embedding=query_embedding,
             query_text=question,
             repo_id=target_repo.id,
-            top_k=top_k,
+            top_k=fetch_k,
         )
 
     if not results:
         console.print("[yellow]No relevant code found.[/yellow]")
         await close_pool()
         return
+
+    # Rerank
+    if use_reranker:
+        with console.status("Reranking…"):
+            from contextcraft.reranker.cohere import CohereReranker
+            reranker = CohereReranker()
+            results = await reranker.rerank(question, results, top_k)
 
     # Build context
     context = build_context(
@@ -487,7 +495,7 @@ async def _status_async() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _get_llm():
+def _get_llm() -> BaseLLM:
     """Return the configured LLM provider."""
     if settings.llm_provider == "anthropic":
         from contextcraft.llm.anthropic import AnthropicLLM

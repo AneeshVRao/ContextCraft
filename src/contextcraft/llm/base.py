@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 
 class BaseLLM(ABC):
@@ -19,7 +19,7 @@ class BaseLLM(ABC):
         ...
 
     @abstractmethod
-    async def stream(
+    def stream(
         self,
         system_prompt: str,
         user_message: str,

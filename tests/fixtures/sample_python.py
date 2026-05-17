@@ -5,11 +5,7 @@ a class with methods, and nested structures — all designed to exercise
 the tree-sitter parser thoroughly.
 """
 
-import os
-import sys
 from pathlib import Path
-from typing import Optional
-
 
 # ---------------------------------------------------------------------------
 # Top-level function
@@ -54,7 +50,7 @@ class Calculator:
 # Another top-level function
 # ---------------------------------------------------------------------------
 
-def process_file(path: str, encoding: str = "utf-8") -> Optional[str]:
+def process_file(path: str, encoding: str = "utf-8") -> str | None:
     """Read a file and return its content, or None on error."""
     try:
         return Path(path).read_text(encoding=encoding)

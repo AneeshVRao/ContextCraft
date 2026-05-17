@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from contextcraft.db.connection import get_pool
 from contextcraft.db.chunks_repo import _row_to_chunk
+from contextcraft.db.connection import get_pool
 from contextcraft.models import CodeChunk
 
 logger = logging.getLogger(__name__)

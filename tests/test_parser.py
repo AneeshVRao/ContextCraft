@@ -100,7 +100,7 @@ class TestParsePython:
         # Should contain our known imports
         all_imports = chunks_with_imports[0].imports
         joined = " ".join(all_imports)
-        assert "os" in joined
+        assert "Path" in joined
         assert "pathlib" in joined
 
 
