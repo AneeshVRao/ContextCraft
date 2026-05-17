@@ -20,6 +20,8 @@ def build_context(
     results: list[SearchResult],
     max_tokens: int | None = None,
     repo_path: str | None = None,
+    expand_deps: bool = False,
+    dep_chunks: list[SearchResult] | None = None,
 ) -> str:
     """Build a prompt-ready context string from search results.
 
@@ -33,6 +35,12 @@ def build_context(
     repo_path:
         Absolute path to the repository root.  If provided and a file
         still exists on disk, surrounding context lines are included.
+    expand_deps:
+        If True and ``dep_chunks`` is provided, append dependency
+        chunks to the context with a ``[dependency]`` label.
+    dep_chunks:
+        Pre-fetched dependency chunks (as SearchResult with score=0).
+        Pass these in from the caller after running the expander.
 
     Returns
     -------
@@ -43,15 +51,27 @@ def build_context(
     sections: list[str] = []
     token_count = 0
 
-    for sr in results:
+    # Combine primary results with dependency chunks
+    all_results = list(results)
+    dep_ids: set[str] = set()
+    if expand_deps and dep_chunks:
+        for dc in dep_chunks:
+            dep_ids.add(str(dc.chunk.id))
+        all_results.extend(dep_chunks)
+
+    for sr in all_results:
         chunk = sr.chunk
+        is_dep = str(chunk.id) in dep_ids
 
         # Build the section header
         header = f"── {chunk.file_path}:{chunk.start_line}-{chunk.end_line}"
         header += f"  [{chunk.chunk_type.value}] {chunk.name}"
         if chunk.parent_name:
             header += f" (in {chunk.parent_name})"
-        header += f"  (score: {sr.score:.4f})"
+        if is_dep:
+            header += "  [dependency]"
+        else:
+            header += f"  (score: {sr.score:.4f})"
 
         # Build blame summary line
         blame_line = ""
@@ -93,7 +113,11 @@ def build_context(
     context = "\n".join(sections)
 
     # Add a summary footer
-    footer = f"\n── {len(sections)} code chunks included ({token_count} estimated tokens)"
+    dep_count = sum(1 for s in sections if "[dependency]" in s)
+    footer = f"\n── {len(sections)} code chunks included"
+    if dep_count:
+        footer += f" ({dep_count} dependency)"
+    footer += f" ({token_count} estimated tokens)"
     return context + footer
 
 

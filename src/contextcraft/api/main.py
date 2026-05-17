@@ -25,6 +25,7 @@ from contextcraft.config import settings
 from contextcraft.db import chunks_repo
 from contextcraft.db.connection import close_pool, run_migrations
 from contextcraft.embeddings.openai import OpenAIEmbedder
+from contextcraft.models import SearchResult
 from contextcraft.search.context_builder import build_context, format_sources
 from contextcraft.search.hybrid import hybrid_search
 
@@ -73,6 +74,7 @@ class AskRequest(BaseModel):
     question: str
     repo_id: str | None = None
     top_k: int = 10
+    expand_deps: bool = False
 
 
 class RepoResponse(BaseModel):
@@ -191,8 +193,29 @@ async def ask_question(request: AskRequest) -> EventSourceResponse:
         reranker = CohereReranker()
         results = await reranker.rerank(request.question, results, request.top_k)
 
+    # Expand with dependency chunks if requested
+    dep_results: list[SearchResult] | None = None
+    if request.expand_deps:
+        try:
+            from contextcraft.graph.expander import expand_with_deps
+
+            chunk_ids = [sr.chunk.id for sr in results]
+            dep_chunks = await expand_with_deps(chunk_ids)
+            if dep_chunks:
+                dep_results = [
+                    SearchResult(chunk=dc, score=0.0, rank=len(results) + i)
+                    for i, dc in enumerate(dep_chunks)
+                ]
+        except Exception:
+            pass  # gracefully skip if graph not available
+
     # Build context
-    context = build_context(results, repo_path=target_repo.local_path)
+    context = build_context(
+        results,
+        repo_path=target_repo.local_path,
+        expand_deps=request.expand_deps,
+        dep_chunks=dep_results,
+    )
     sources = format_sources(results)
 
     # LLM system prompt

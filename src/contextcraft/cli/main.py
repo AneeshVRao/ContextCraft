@@ -35,6 +35,7 @@ from contextcraft.llm.base import BaseLLM
 from contextcraft.models import (
     CodeChunk,
     Language,
+    SearchResult,
 )
 from contextcraft.parser.ast_parser import detect_language, parse_file
 from contextcraft.search.context_builder import build_context, format_sources
@@ -353,12 +354,17 @@ def ask(
     no_rerank: bool = typer.Option(
         False, "--no-rerank", help="Disable Cohere reranker and use pure RRF ranking"
     ),
+    with_deps: bool = typer.Option(
+        False, "--with-deps", help="Expand context with 1-hop dependency chunks"
+    ),
 ) -> None:
     """Ask a question about an indexed codebase."""
-    asyncio.run(_ask_async(question, repo, top_k, no_rerank))
+    asyncio.run(_ask_async(question, repo, top_k, no_rerank, with_deps))
 
 
-async def _ask_async(question: str, repo: str | None, top_k: int | None, no_rerank: bool) -> None:
+async def _ask_async(
+    question: str, repo: str | None, top_k: int | None, no_rerank: bool, with_deps: bool
+) -> None:
     top_k = top_k or settings.search_top_k
 
     await run_migrations()
@@ -430,10 +436,31 @@ async def _ask_async(question: str, repo: str | None, top_k: int | None, no_rera
             reranker = CohereReranker()
             results = await reranker.rerank(question, results, top_k)
 
+    # Expand with dependency chunks if requested
+    dep_results: list[SearchResult] | None = None
+    if with_deps:
+        try:
+            from contextcraft.graph.expander import expand_with_deps
+
+            chunk_ids = [sr.chunk.id for sr in results]
+            dep_chunks = await expand_with_deps(chunk_ids)
+            if dep_chunks:
+                dep_results = [
+                    SearchResult(chunk=dc, score=0.0, rank=len(results) + i)
+                    for i, dc in enumerate(dep_chunks)
+                ]
+                console.print(
+                    f"  [dim]Expanded context with {len(dep_chunks)} dependency chunks[/dim]"
+                )
+        except Exception as e:
+            console.print(f"  [yellow]⚠ Dependency expansion skipped: {e}[/yellow]")
+
     # Build context
     context = build_context(
         results,
         repo_path=target_repo.local_path,
+        expand_deps=with_deps,
+        dep_chunks=dep_results,
     )
 
     # Build prompt
