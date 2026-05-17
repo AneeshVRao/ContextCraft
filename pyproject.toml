@@ -72,7 +72,8 @@ warn_unused_configs = true
 
 [[tool.mypy.overrides]]
 module = [
-    "asyncpg.*"
+    "asyncpg.*",
+    "tree_sitter_languages.*"
 ]
 ignore_missing_imports = true
 

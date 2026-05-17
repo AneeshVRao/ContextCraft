@@ -146,7 +146,7 @@ async def insert_chunks(chunks: list[CodeChunk]) -> int:
         )
 
     logger.info("Inserted %d chunks", len(records))
-    return len(records)
+    return int(len(records))
 
 
 async def get_chunks_by_repo(repo_id: UUID) -> list[CodeChunk]:

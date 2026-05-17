@@ -50,27 +50,27 @@ NAME_FIELD: dict[Language, str] = {
 }
 
 
-def detect_language(file_path: str | Path) -> Language | None:
+def detect_language(file_path: Path) -> Language | None:
     """Return the ``Language`` for *file_path* based on its extension, or
     ``None`` if the extension is not recognised."""
     ext = Path(file_path).suffix.lower()
     return EXTENSION_LANGUAGE_MAP.get(ext)
 
 
-def _get_parser(language: Language):
+def _get_parser(language: Language) -> Parser:
     """Return a tree-sitter ``Parser`` configured for *language*."""
     grammar_name = LANGUAGE_GRAMMAR_MAP[language]
     parser = tree_sitter_languages.get_parser(grammar_name)
     return parser
 
 
-def _get_ts_language(language: Language):
+def _get_ts_language(language: Language) -> Any:
     """Return the tree-sitter ``Language`` object for *language*."""
     grammar_name = LANGUAGE_GRAMMAR_MAP[language]
     return tree_sitter_languages.get_language(grammar_name)
 
 
-def _node_name(node, language: Language) -> str:
+def _node_name(node: Node, language: Language) -> str:
     """Extract the identifier name from an AST node.
 
     Falls back to a positional description if no name field is found.
@@ -91,12 +91,12 @@ def _node_name(node, language: Language) -> str:
     return f"<anonymous@{node.start_point[0] + 1}>"
 
 
-def _node_text(node, source_bytes: bytes) -> str:
+def _node_text(node: Node, source_bytes: bytes) -> str:
     """Return the source text covered by *node*."""
     return source_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _extract_imports_python(root_node, source_bytes: bytes) -> list[str]:
+def _extract_imports_python(root_node: Node, source_bytes: bytes) -> list[str]:
     """Pull top-level import names from a Python AST."""
     imports: list[str] = []
     for child in root_node.children:
@@ -107,7 +107,7 @@ def _extract_imports_python(root_node, source_bytes: bytes) -> list[str]:
     return imports
 
 
-def _extract_docstring_python(node, source_bytes: bytes) -> str | None:
+def _extract_docstring_python(node: Node, source_bytes: bytes) -> str | None:
     """Return the docstring of a Python function/class if present."""
     body = node.child_by_field_name("body")
     if body is None:
@@ -121,7 +121,7 @@ def _extract_docstring_python(node, source_bytes: bytes) -> str | None:
     return None
 
 
-def _find_parent_class(node) -> str | None:
+def _find_parent_class(node: Node) -> str | None:
     """Walk up the tree to find the enclosing class name, if any."""
     current = node.parent
     while current is not None:

@@ -137,7 +137,7 @@ def format_sources(results: list[SearchResult]) -> str:
     lines: list[str] = ["Sources:"]
     for sr in results:
         c = sr.chunk
-        entry = f"  • {c.file_path}:{c.start_line}–{c.end_line}"
+        entry = f"  • {c.file_path}:{c.start_line}-{c.end_line}"
         entry += f"  ({c.chunk_type.value}: {c.name})"
         if c.git_blame:
             entry += f"  by {c.git_blame.get('last_author', '?')}"
