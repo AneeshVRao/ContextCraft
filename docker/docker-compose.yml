@@ -1,0 +1,27 @@
+"""Docker Compose for local ContextCraft development.
+
+Services:
+  - postgres: PostgreSQL 16 with pgvector extension
+"""
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: contextcraft-db
+    environment:
+      POSTGRES_USER: contextcraft
+      POSTGRES_PASSWORD: contextcraft
+      POSTGRES_DB: contextcraft
+    ports:
+      - "5432:5432"
+    volumes:
+      - contextcraft_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contextcraft -d contextcraft"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  contextcraft_pgdata:

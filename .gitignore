@@ -1,0 +1,19 @@
+# ContextCraft ignores
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+.env
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.db
+*.sqlite3
+.DS_Store
+Thumbs.db
