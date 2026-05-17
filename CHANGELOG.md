@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multi-Repo CLI/API** — Added `--repos` (comma-separated) and `--all-repos` CLI flags, and `repo_ids`/`all_repos` to the `/ask` endpoint schema.
 - **Testing** — Added `tests/fixtures/import_ground_truth.txt` and `test_graph.py` to ensure high-fidelity edge generation. Integrated `@pytest.mark.unit` via ECC rules.
 
-## [0.2.0] — 2026-05-17### Added
+## [0.2.0] — 2026-05-17
+
+### Added
 - **Cohere Reranker** (`rerank-english-v3.0`) — cross-encoder reranking via `reranker/` module with abstract `BaseReranker` interface. Increases retrieval pool to 60 candidates, reranks down to requested `top_k`.
 - **`--no-rerank` CLI flag** on `contextcraft ask` to bypass reranking when speed is preferred over precision.
 - **Reranker in FastAPI** — `/ask` endpoint automatically reranks when `CONTEXTCRAFT_COHERE_API_KEY` is set.
