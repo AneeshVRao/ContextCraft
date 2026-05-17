@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
+
 from contextcraft.graph.models import ChunkEdge
 from contextcraft.graph.resolver import (
     _normalise_init_path,
@@ -44,6 +46,7 @@ def _make_chunk(
     )
 
 
+@pytest.mark.unit
 class TestNormalisePaths(unittest.TestCase):
     """Test module path normalisation helpers."""
 
@@ -66,6 +69,7 @@ class TestNormalisePaths(unittest.TestCase):
         assert _normalise_init_path("contextcraft.db") == "db/__init__.py"
 
 
+@pytest.mark.unit
 class TestBuildChunkRegistry(unittest.TestCase):
     """Test chunk registry construction."""
 
@@ -83,6 +87,7 @@ class TestBuildChunkRegistry(unittest.TestCase):
         assert "db/connection.py" in registry
 
 
+@pytest.mark.unit
 class TestResolveImports(unittest.TestCase):
     """Test import edge resolution."""
 
@@ -170,6 +175,7 @@ class TestResolveImports(unittest.TestCase):
         assert len(edges) == 1
 
 
+@pytest.mark.unit
 class TestResolveInheritance(unittest.TestCase):
     """Test inheritance edge resolution."""
 
@@ -217,6 +223,7 @@ class TestResolveInheritance(unittest.TestCase):
         assert len(edges) == 0
 
 
+@pytest.mark.unit
 class TestResolveAll(unittest.TestCase):
     """Integration test for resolve_all."""
 
@@ -246,6 +253,7 @@ class TestResolveAll(unittest.TestCase):
         assert inherit_edges[0].source_chunk_id == child.id
 
 
+@pytest.mark.unit
 class TestChunkEdgeModel(unittest.TestCase):
     """Test ChunkEdge Pydantic model."""
 

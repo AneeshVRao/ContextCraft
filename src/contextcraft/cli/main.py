@@ -540,6 +540,10 @@ def _get_llm() -> BaseLLM:
         from contextcraft.llm.anthropic import AnthropicLLM
 
         return AnthropicLLM()
+    elif settings.llm_provider == "ollama":
+        from contextcraft.llm.ollama import OllamaLLM
+
+        return OllamaLLM()
     else:
         from contextcraft.llm.openai import OpenAILLM
 

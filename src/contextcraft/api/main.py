@@ -229,13 +229,18 @@ Be concise but thorough. Use markdown formatting."""
 
     # Stream response via SSE
     async def event_generator() -> AsyncIterator[dict[str, Any]]:
+        from contextcraft.llm.base import BaseLLM
         from contextcraft.llm.openai import OpenAILLM
 
-        llm: OpenAILLM | AnthropicLLM
+        llm: BaseLLM
         if settings.llm_provider == "anthropic":
             from contextcraft.llm.anthropic import AnthropicLLM
 
             llm = AnthropicLLM()
+        elif settings.llm_provider == "ollama":
+            from contextcraft.llm.ollama import OllamaLLM
+
+            llm = OllamaLLM()
         else:
             llm = OpenAILLM()
 

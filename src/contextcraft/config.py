@@ -34,10 +34,12 @@ class Settings(BaseSettings):
     embedding_max_concurrent: int = 5
 
     # --- LLM -------------------------------------------------------------
-    llm_provider: str = "openai"  # "openai" | "anthropic"
+    llm_provider: str = "openai"  # "openai" | "anthropic" | "ollama"
     openai_chat_model: str = "gpt-4o"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5-coder:7b"
 
     # --- Search & Reranking ----------------------------------------------
     search_top_k: int = 10
