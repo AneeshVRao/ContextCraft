@@ -353,7 +353,9 @@ def ask(
     all_repos: bool = typer.Option(
         False, "--all-repos", help="Search across all indexed repositories"
     ),
-    top_k: int | None = typer.Option(None, "--top-k", "-k", help="Number of code chunks to retrieve"),
+    top_k: int | None = typer.Option(
+        None, "--top-k", "-k", help="Number of code chunks to retrieve"
+    ),
     no_rerank: bool = typer.Option(
         False, "--no-rerank", help="Disable Cohere reranker and use pure RRF ranking"
     ),
