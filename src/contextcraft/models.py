@@ -9,7 +9,7 @@ Defines the core data structures used across the project:
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -100,7 +100,7 @@ class CodeChunk(BaseModel):
     git_blame: dict[str, object] = Field(default_factory=dict)
     commit_history: list[CommitInfo] = Field(default_factory=list)
 
-    indexed_at: datetime = Field(default_factory=datetime.utcnow)
+    indexed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -125,7 +125,7 @@ class Repository(BaseModel):
     last_indexed_at: datetime | None = None
     last_commit_hash: str | None = None
     chunk_count: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class SearchResult(BaseModel):

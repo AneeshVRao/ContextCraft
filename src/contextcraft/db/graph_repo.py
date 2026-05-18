@@ -76,6 +76,10 @@ async def get_dependencies(
 
     Returns raw rows from code_chunks — caller converts to CodeChunk.
     Skips chunks already in chunk_ids. Caps at ``limit`` results.
+
+    Cycle detection for graph expansion lives in ``graph.expander``
+    (``visited`` set).  A recursive SQL CTE with ``NOT target = ANY(visited)``
+    is available if multi-hop expansion is added later.
     """
     pool = await get_pool()
     rows = await pool.fetch(

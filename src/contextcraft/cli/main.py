@@ -37,6 +37,7 @@ from contextcraft.config import settings
 from contextcraft.db import chunks_repo
 from contextcraft.db.connection import close_pool, run_migrations
 from contextcraft.embeddings.base import BaseEmbedder
+from contextcraft.git.async_git import run_git
 from contextcraft.git.blame import get_chunk_blame, get_file_blame
 from contextcraft.git.history import get_file_history
 from contextcraft.llm.base import BaseLLM
@@ -45,9 +46,11 @@ from contextcraft.models import (
     Language,
     SearchResult,
 )
-from contextcraft.parser.ast_parser import detect_language, parse_file
+from contextcraft.parser.ast_parser import detect_language, parse_file_async
+from contextcraft.reranker.cohere import RerankerUnavailableError
 from contextcraft.search.context_builder import build_context, format_sources
 from contextcraft.search.hybrid import hybrid_search
+from contextcraft.security import is_inside_repo, sanitize_query, validate_repo_path
 
 app = typer.Typer(
     name="contextcraft",
@@ -74,7 +77,8 @@ logging.basicConfig(
 
 
 def _collect_files(repo_path: Path) -> list[Path]:
-    """Walk *repo_path*, skip ignored patterns, return supported files."""
+    """Walk *repo_path*, skip ignored patterns and escaping symlinks."""
+    repo_root = repo_path.resolve()
     # Load .gitignore patterns
     gitignore_path = repo_path / ".gitignore"
     contextignore_path = repo_path / ".contextignore"
@@ -92,10 +96,14 @@ def _collect_files(repo_path: Path) -> list[Path]:
 
     files: list[Path] = []
     for path in repo_path.rglob("*"):
+        if path.is_symlink() and not is_inside_repo(path, repo_root):
+            continue
         if not path.is_file():
             continue
+        if not is_inside_repo(path, repo_root):
+            continue
         try:
-            rel = path.relative_to(repo_path)
+            rel = path.relative_to(repo_root)
         except ValueError:
             continue
         rel_str = str(rel).replace("\\", "/")
@@ -107,42 +115,35 @@ def _collect_files(repo_path: Path) -> list[Path]:
     return sorted(files)
 
 
-def _get_changed_files(repo_path: Path, last_commit: str | None) -> set[str] | None:
+async def _get_changed_files(repo_path: Path, last_commit: str | None) -> set[str] | None:
     """Return set of files changed since *last_commit*, or None for full index."""
     if not last_commit:
         return None
-    import subprocess
 
     try:
-        result = subprocess.run(
-            ["git", "diff", "--name-only", last_commit, "HEAD"],
+        returncode, stdout, _stderr = await run_git(
+            ["diff", "--name-only", last_commit, "HEAD"],
             cwd=str(repo_path),
-            capture_output=True,
-            text=True,
-            timeout=30,
+            timeout=30.0,
         )
-        if result.returncode == 0:
-            return {f.strip() for f in result.stdout.splitlines() if f.strip()}
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+        if returncode == 0:
+            return {f.strip() for f in stdout.splitlines() if f.strip()}
+    except FileNotFoundError:
         pass
     return None
 
 
-def _get_head_commit(repo_path: Path) -> str | None:
+async def _get_head_commit(repo_path: Path) -> str | None:
     """Return the current HEAD commit hash."""
-    import subprocess
-
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+        returncode, stdout, _stderr = await run_git(
+            ["rev-parse", "HEAD"],
             cwd=str(repo_path),
-            capture_output=True,
-            text=True,
-            timeout=10,
+            timeout=10.0,
         )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+        if returncode == 0:
+            return stdout.strip()
+    except FileNotFoundError:
         pass
     return None
 
@@ -181,7 +182,12 @@ def index(
     skip_git: bool = typer.Option(False, "--skip-git", help="Skip git blame and history"),
 ) -> None:
     """Index a codebase: parse → git blame → embed → store."""
-    asyncio.run(_index_async(Path(repo_path).resolve(), incremental, skip_embeddings, skip_git))
+    try:
+        resolved = validate_repo_path(Path(repo_path))
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    asyncio.run(_index_async(resolved, incremental, skip_embeddings, skip_git))
 
 
 async def _index_async(
@@ -200,7 +206,7 @@ async def _index_async(
     await run_migrations()
 
     # --- Repository record ---
-    head_commit = _get_head_commit(repo_path)
+    head_commit = await _get_head_commit(repo_path)
     repo = await chunks_repo.get_repository_by_path(str(repo_path))
 
     # --- Determine files to process ---
@@ -208,7 +214,7 @@ async def _index_async(
     files_to_process = all_files
 
     if incremental and repo and repo.last_commit_hash:
-        changed = _get_changed_files(repo_path, repo.last_commit_hash)
+        changed = await _get_changed_files(repo_path, repo.last_commit_hash)
         if changed is not None:
             files_to_process = [
                 f for f in all_files if str(f.relative_to(repo_path)).replace("\\", "/") in changed
@@ -259,14 +265,14 @@ async def _index_async(
             # Delete old chunks for this file (Pitfall 7)
             await chunks_repo.delete_chunks_by_file(repo_id, rel_path)
 
-            chunks = parse_file(file_path, repo_root=repo_path)
+            chunks = await parse_file_async(file_path, repo_root=repo_path)
             for chunk in chunks:
                 chunk.repo_id = repo_id
 
             # Attach git context
             if not skip_git and (repo_path / ".git").is_dir():
-                file_blame = get_file_blame(repo_path, rel_path)
-                file_hist = get_file_history(repo_path, rel_path)
+                file_blame = await get_file_blame(repo_path, rel_path)
+                file_hist = await get_file_history(repo_path, rel_path)
                 for chunk in chunks:
                     chunk.git_blame = get_chunk_blame(file_blame, chunk.start_line, chunk.end_line)
                     chunk.commit_history = file_hist
@@ -386,6 +392,11 @@ async def _ask_async(
     no_rerank: bool,
     with_deps: bool,
 ) -> None:
+    question = sanitize_query(question)
+    if not question:
+        console.print("[red]Question must not be empty.[/red]")
+        raise typer.Exit(1)
+
     top_k = top_k or settings.search_top_k
 
     await run_migrations()
@@ -470,7 +481,11 @@ async def _ask_async(
             from contextcraft.reranker.cohere import CohereReranker
 
             reranker = CohereReranker()
-            results = await reranker.rerank(question, results, top_k)
+            try:
+                results = await reranker.rerank(question, results, top_k)
+            except RerankerUnavailableError as exc:
+                console.print(f"  [yellow]⚠ {exc}[/yellow]")
+                results = results[:top_k]
 
     # Expand with dependency chunks if requested
     dep_results: list[SearchResult] | None = None

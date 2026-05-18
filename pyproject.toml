@@ -39,6 +39,7 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "sse-starlette>=2.0",
     "google-genai>=0.1.0",
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]
@@ -75,13 +76,19 @@ warn_unused_configs = true
 module = [
     "asyncpg.*",
     "tree_sitter_languages.*",
-    "google.*"
+    "google.*",
+    "slowapi",
+    "slowapi.*",
 ]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::FutureWarning:tree_sitter",
+    "ignore::FutureWarning:tree_sitter_languages",
+]
 markers = [
     "unit: Unit tests",
 ]

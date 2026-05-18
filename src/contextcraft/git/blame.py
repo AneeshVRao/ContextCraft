@@ -8,9 +8,10 @@ The caller then slices out the relevant ranges for each code chunk.
 from __future__ import annotations
 
 import logging
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+from contextcraft.git.async_git import run_git
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class LineBlame:
     date: str
 
 
-def get_file_blame(repo_path: str | Path, file_path: str) -> dict[int, LineBlame]:
+async def get_file_blame(repo_path: str | Path, file_path: str) -> dict[int, LineBlame]:
     """Run ``git blame --porcelain`` on *file_path* and return a dict
     mapping 1-indexed line numbers to ``LineBlame`` objects.
 
@@ -42,22 +43,20 @@ def get_file_blame(repo_path: str | Path, file_path: str) -> dict[int, LineBlame
         ``{line_number: LineBlame(…), …}``  Empty dict if blame fails.
     """
     try:
-        result = subprocess.run(
-            ["git", "blame", "--porcelain", file_path],
+        returncode, stdout, _stderr = await run_git(
+            ["blame", "--porcelain", file_path],
             cwd=str(repo_path),
-            capture_output=True,
-            text=True,
-            timeout=60,
+            timeout=60.0,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+    except FileNotFoundError as exc:
         logger.warning("git blame failed for %s: %s", file_path, exc)
         return {}
 
-    if result.returncode != 0:
-        logger.debug("git blame returned %d for %s", result.returncode, file_path)
+    if returncode != 0:
+        logger.debug("git blame returned %d for %s", returncode, file_path)
         return {}
 
-    return _parse_porcelain(result.stdout)
+    return _parse_porcelain(stdout)
 
 
 def _parse_porcelain(output: str) -> dict[int, LineBlame]:

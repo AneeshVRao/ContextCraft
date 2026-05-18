@@ -9,7 +9,9 @@ Supported languages: Python, JavaScript/TypeScript, Go.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import warnings
 from pathlib import Path
 from typing import Any, cast
 
@@ -62,14 +64,18 @@ def detect_language(file_path: Path) -> Language | None:
 def _get_parser(language: Language) -> Parser:
     """Return a tree-sitter ``Parser`` configured for *language*."""
     grammar_name = LANGUAGE_GRAMMAR_MAP[language]
-    parser = tree_sitter_languages.get_parser(grammar_name)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        parser = tree_sitter_languages.get_parser(grammar_name)
     return cast(Parser, parser)
 
 
 def _get_ts_language(language: Language) -> Any:
     """Return the tree-sitter ``Language`` object for *language*."""
     grammar_name = LANGUAGE_GRAMMAR_MAP[language]
-    return tree_sitter_languages.get_language(grammar_name)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        return tree_sitter_languages.get_language(grammar_name)
 
 
 def _node_name(node: Node, language: Language) -> str:
@@ -309,3 +315,19 @@ def _walk_node(
             chunks,
             _depth=_depth + 1,
         )
+
+
+async def parse_file_async(
+    file_path: str | Path,
+    language: Language | None = None,
+    repo_root: str | Path | None = None,
+) -> list[CodeChunk]:
+    """CPU-bound parse wrapper safe to call from async code."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None,
+        parse_file,
+        file_path,
+        language,
+        repo_root,
+    )

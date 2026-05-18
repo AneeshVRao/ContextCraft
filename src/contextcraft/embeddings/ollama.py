@@ -10,11 +10,13 @@ import logging
 
 import httpx
 
+from contextcraft.config import settings
 from contextcraft.embeddings.base import BaseEmbedder
+from contextcraft.http_timeouts import OLLAMA_TIMEOUT
+from contextcraft.security import validate_ollama_base_url
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_MODEL = "nomic-embed-text"
 
 
@@ -23,12 +25,16 @@ class OllamaEmbedder(BaseEmbedder):
 
     def __init__(
         self,
-        base_url: str = DEFAULT_OLLAMA_URL,
+        base_url: str | None = None,
         model: str = DEFAULT_MODEL,
-    ):
-        self._base_url = base_url.rstrip("/")
+    ) -> None:
+        url = validate_ollama_base_url(
+            (base_url or settings.ollama_base_url),
+            allow_remote=settings.ollama_allow_remote,
+        )
+        self._base_url = url
         self._model = model
-        self._client = httpx.AsyncClient(timeout=120.0)
+        self._client = httpx.AsyncClient(timeout=OLLAMA_TIMEOUT)
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed texts one-by-one (Ollama API doesn't support batching)."""

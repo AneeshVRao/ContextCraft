@@ -38,8 +38,6 @@ class GeminiEmbedder(BaseEmbedder):
         if not texts:
             return []
 
-
-
         sem = asyncio.Semaphore(settings.embedding_max_concurrent)
 
         async def embed_single_text(text: str) -> list[float]:

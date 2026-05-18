@@ -7,9 +7,9 @@ commit hash, message, author, and date.
 from __future__ import annotations
 
 import logging
-import subprocess
 from pathlib import Path
 
+from contextcraft.git.async_git import run_git
 from contextcraft.models import CommitInfo
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_COMMIT_COUNT = 5
 
 
-def get_file_history(
+async def get_file_history(
     repo_path: str | Path,
     file_path: str,
     max_commits: int = DEFAULT_COMMIT_COUNT,
@@ -43,9 +43,8 @@ def get_file_history(
     fmt = f"%H{sep}%s{sep}%an{sep}%ai"
 
     try:
-        result = subprocess.run(
+        returncode, stdout, _stderr = await run_git(
             [
-                "git",
                 "log",
                 f"-n{max_commits}",
                 f"--pretty=format:{fmt}",
@@ -53,19 +52,17 @@ def get_file_history(
                 file_path,
             ],
             cwd=str(repo_path),
-            capture_output=True,
-            text=True,
-            timeout=30,
+            timeout=30.0,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+    except FileNotFoundError as exc:
         logger.warning("git log failed for %s: %s", file_path, exc)
         return []
 
-    if result.returncode != 0 or not result.stdout.strip():
+    if returncode != 0 or not stdout.strip():
         return []
 
     commits: list[CommitInfo] = []
-    for line in result.stdout.strip().split("\n"):
+    for line in stdout.strip().split("\n"):
         parts = line.split(sep)
         if len(parts) >= 4:
             commits.append(

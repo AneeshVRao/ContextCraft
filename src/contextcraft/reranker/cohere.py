@@ -13,6 +13,10 @@ from contextcraft.reranker.base import BaseReranker
 logger = logging.getLogger(__name__)
 
 
+class RerankerUnavailableError(Exception):
+    """Raised when the Cohere reranking service cannot be reached."""
+
+
 class CohereReranker(BaseReranker):
     """Reranker using Cohere's API.
 
@@ -31,11 +35,6 @@ class CohereReranker(BaseReranker):
         if not results:
             return []
 
-        # If we have fewer results than top_n, just return them
-        # (Cohere still scores them, but no filtering is strictly needed,
-        # though we might still want to sort by the new scores).
-
-        # Extract text documents for the reranker
         documents = [res.chunk.content for res in results]
 
         try:
@@ -55,10 +54,7 @@ class CohereReranker(BaseReranker):
 
             reranked_results: list[SearchResult] = []
             for rank_idx, r in enumerate(response.results, start=1):
-                # r.index maps back to the index in the original `documents` list
                 orig_result = results[r.index]
-
-                # Create a new SearchResult with the updated score and rank
                 reranked_results.append(
                     SearchResult(
                         chunk=orig_result.chunk,
@@ -72,8 +68,8 @@ class CohereReranker(BaseReranker):
             )
             return reranked_results
 
-        except Exception as e:
-            logger.error("Cohere reranker failed: %s", e)
-            # Fallback to the original ranking
-            logger.warning("Falling back to original RRF ranking due to reranker error.")
-            return results[:top_n]
+        except Exception as exc:
+            logger.error("Cohere reranker failed: %s", exc)
+            raise RerankerUnavailableError(
+                "Reranking service unavailable, retrying with RRF results"
+            ) from exc

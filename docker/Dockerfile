@@ -18,13 +18,18 @@ WORKDIR /app
 # Install git for git blame / history features
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --system appuser && \
+    useradd --system --gid appuser --home-dir /app appuser
 
 COPY --from=builder /app/dist/*.whl /tmp/
 
 RUN pip install --no-cache-dir /tmp/*.whl && \
-    rm -f /tmp/*.whl
+    rm -f /tmp/*.whl && \
+    chown -R appuser:appuser /app
 
-# Default: run the API server
+USER appuser
+
 EXPOSE 8000
-CMD ["python", "-m", "uvicorn", "contextcraft.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+CMD ["sh", "-c", "uvicorn contextcraft.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

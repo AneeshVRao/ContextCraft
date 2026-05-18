@@ -9,12 +9,15 @@ at 5 GB RAM. Override with ``CONTEXTCRAFT_OLLAMA_MODEL``.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
 
 import httpx
 
 from contextcraft.config import settings
+from contextcraft.http_timeouts import OLLAMA_TIMEOUT
 from contextcraft.llm.base import BaseLLM
 
 logger = logging.getLogger(__name__)
@@ -39,18 +42,15 @@ class OllamaLLM(BaseLLM):
         self._base_url = (base_url or settings.ollama_base_url).rstrip("/")
         self._model = model or settings.ollama_model
         self._verified = False
+        self._active_response: httpx.Response | None = None
 
     async def _verify_connection(self) -> None:
-        """Check that Ollama is running and the model is available.
-
-        Hits ``/api/tags`` and raises ``OllamaConnectionError`` with a
-        clear message if the server is unreachable.
-        """
+        """Check that Ollama is running and the model is available."""
         if self._verified:
             return
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
                 resp = await client.get(f"{self._base_url}/api/tags")
                 resp.raise_for_status()
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
@@ -62,7 +62,6 @@ class OllamaLLM(BaseLLM):
                 f"Ollama returned HTTP {exc.response.status_code}. Check your Ollama installation."
             ) from exc
 
-        # Check if the model is available
         data = resp.json()
         available_models = [m.get("name", "") for m in data.get("models", [])]
         model_names = [m.split(":")[0] for m in available_models]
@@ -79,11 +78,17 @@ class OllamaLLM(BaseLLM):
         self._verified = True
         logger.info("Ollama connection verified at %s (model: %s)", self._base_url, self._model)
 
+    async def close(self) -> None:
+        """Close an in-flight streaming response if the client disconnected."""
+        if self._active_response is not None:
+            await self._active_response.aclose()
+            self._active_response = None
+
     async def generate(self, system_prompt: str, user_message: str) -> str:
         """Generate a complete response (non-streaming)."""
         await self._verify_connection()
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
             resp = await client.post(
                 f"{self._base_url}/api/chat",
                 json={
@@ -104,9 +109,9 @@ class OllamaLLM(BaseLLM):
         """Yield response tokens as they arrive from Ollama."""
         await self._verify_connection()
 
-        async with (
-            httpx.AsyncClient(timeout=120.0) as client,
-            client.stream(
+        client = httpx.AsyncClient(timeout=OLLAMA_TIMEOUT)
+        try:
+            async with client.stream(
                 "POST",
                 f"{self._base_url}/api/chat",
                 json={
@@ -118,20 +123,24 @@ class OllamaLLM(BaseLLM):
                     "stream": True,
                     "options": {"temperature": 0.1},
                 },
-            ) as resp,
-        ):
-            resp.raise_for_status()
-            import json
-
-            async for line in resp.aiter_lines():
-                if not line.strip():
-                    continue
-                try:
-                    chunk = json.loads(line)
-                    content = chunk.get("message", {}).get("content", "")
-                    if content:
-                        yield content
-                    if chunk.get("done", False):
-                        break
-                except json.JSONDecodeError:
-                    continue
+            ) as resp:
+                self._active_response = resp
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                        content = chunk.get("message", {}).get("content", "")
+                        if content:
+                            yield content
+                        if chunk.get("done", False):
+                            break
+                    except json.JSONDecodeError:
+                        continue
+        except asyncio.CancelledError:
+            await self.close()
+            raise
+        finally:
+            self._active_response = None
+            await client.aclose()
