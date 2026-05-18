@@ -1,26 +1,90 @@
-# ContextCraft ignores
+# ContextCraft — Python + FastAPI + Next.js + Docker + PyPI + Railway
+
+# --- PYTHON ---
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-*.egg-info/
-dist/
-build/
-.eggs/
-*.egg
+*.pyd
+.Python
+*.so
+
+# --- VIRTUAL ENVIRONMENTS ---
 .venv/
 venv/
+env/
+.uv/
+
+# --- BUILD & DISTRIBUTION ---
+dist/
+build/
+*.egg-info/
+.eggs/
+*.whl
+*.tar.gz
+MANIFEST
+
+# --- ENVIRONMENT & SECRETS ---
 .env
+.env.*
+!.env.example
+
+# --- TESTING & COVERAGE ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.coveragerc
+
+# --- TYPE CHECKING & LINTING ---
 .mypy_cache/
 .ruff_cache/
-.pytest_cache/
+.dmypy.json
+dmypy.json
+
+# --- NEXT.JS / NODE ---
+web/.next/
+web/node_modules/
+web/out/
+web/.turbo/
+web/coverage/
+*.tsbuildinfo
+
+# --- DOCKER ---
+.docker/
+docker-volumes/
+
+# --- DATABASES & LOCAL STATE ---
 *.db
+*.sqlite
 *.sqlite3
+pgdata/
+
+# --- LOGS ---
+*.log
+logs/
+
+# --- EVAL HARNESS OUTPUTS ---
+eval/results/
+eval/outputs/
+eval/*.json
+!eval/test_cases.json
+
+# --- BENCHMARK ARTIFACTS ---
+benchmark_raw/
+*.benchmark.json
+
+# --- IDE & OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
 .DS_Store
 Thumbs.db
 
-# Node.js & Next.js
-node_modules/
-.next/
-out/
-build/
-.npm/
+# --- CLAUDE CODE ---
+CLAUDE.md
+.claude/
+
+# --- RAILWAY ---
+.railway/
