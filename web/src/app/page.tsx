@@ -8,7 +8,7 @@ import { Send, Bot, Database, Server, Terminal, Layers } from "lucide-react";
 
 export default function Home() {
   const [repos, setRepos] = useState<Repo[]>([]);
-  const [selectedRepoIds, setSelectedRepoIds] = useState<string[]>([]);
+  const [selectedRepoIds, setSelectedRepoIds] = useState<number[]>([]);
   const [allRepos, setAllRepos] = useState(false);
   const [expandDeps, setExpandDeps] = useState(false);
   

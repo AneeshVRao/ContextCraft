@@ -10,7 +10,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from pathlib import Path
+
+# Force UTF-8 encoding for standard output to avoid UnicodeEncodeError in Windows
+if sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+if sys.stderr.encoding.lower() != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+
 
 import pathspec
 import typer
@@ -272,10 +280,8 @@ async def _index_async(
 
     # --- Embed ---
     if not skip_embeddings and (
-        (settings.embedding_provider == "gemini"
-        and settings.gemini_api_key)
-        or (settings.embedding_provider == "openai"
-        and settings.openai_api_key)
+        (settings.embedding_provider == "gemini" and settings.gemini_api_key)
+        or (settings.embedding_provider == "openai" and settings.openai_api_key)
     ):
         console.print("  Embedding chunks…")
         embedder = _get_embedder()
@@ -305,8 +311,8 @@ async def _index_async(
         console.print("  [dim]Skipping embeddings (--skip-embeddings)[/dim]")
     else:
         console.print(
-            "  [yellow]⚠ No OPENAI_API_KEY set — skipping embeddings.[/yellow]\n"
-            "  Set CONTEXTCRAFT_OPENAI_API_KEY to enable vector search."
+            "  [yellow]⚠ No embedding API key set — skipping embeddings.[/yellow]\n"
+            "  Set CONTEXTCRAFT_GEMINI_API_KEY or CONTEXTCRAFT_OPENAI_API_KEY to enable vector search."
         )
 
     # --- Store ---
@@ -314,7 +320,7 @@ async def _index_async(
     count = await chunks_repo.update_chunk_count(repo_id)
 
     # --- Create HNSW index (Pitfall 3: after bulk insert) ---
-    if not skip_embeddings and settings.openai_api_key:
+    if not skip_embeddings and (settings.gemini_api_key or settings.openai_api_key):
         try:
             await chunks_repo.create_hnsw_index()
             console.print("  [green]✓[/green] HNSW vector index created")

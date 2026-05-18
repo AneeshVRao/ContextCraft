@@ -115,7 +115,9 @@ async def insert_chunks(chunks: list[CodeChunk]) -> int:
             chunk.content,
             chunk.start_line,
             chunk.end_line,
-            chunk.embedding,  # None if not yet embedded
+            str(chunk.embedding)
+            if chunk.embedding
+            else None,  # pgvector expects a string representation
             chunk.content_hash,
             json.dumps(chunk.git_blame),
             json.dumps([c.model_dump() for c in chunk.commit_history]),

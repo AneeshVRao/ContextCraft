@@ -6,9 +6,11 @@ Default model is `text-embedding-004`.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from google import genai
+from google.genai import types
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from contextcraft.config import settings
@@ -36,13 +38,28 @@ class GeminiEmbedder(BaseEmbedder):
         if not texts:
             return []
 
-        # Gemini typically handles batch embedding via list of contents
-        response = await self.client.aio.models.embed_content(
-            model=self.model,
-            contents=texts,
-        )
 
-        return [e.values for e in response.embeddings]
+
+        sem = asyncio.Semaphore(settings.embedding_max_concurrent)
+
+        async def embed_single_text(text: str) -> list[float]:
+            if not text.strip():
+                return [0.0] * 1536
+            async with sem:
+                # Sleep to respect 100 Requests Per Minute (RPM) free tier quota limit
+                await asyncio.sleep(3.0)
+                res = await self.client.aio.models.embed_content(
+                    model=self.model,
+                    contents=text,
+                    config=types.EmbedContentConfig(output_dimensionality=1536),
+                )
+                assert res.embeddings is not None
+                assert res.embeddings[0].values is not None
+                return list(res.embeddings[0].values)
+
+        tasks = [embed_single_text(text) for text in texts]
+        results = await asyncio.gather(*tasks)
+        return list(results)
 
     async def embed_single(self, text: str) -> list[float]:
         """Embed a single text string."""
