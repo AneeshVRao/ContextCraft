@@ -1,6 +1,6 @@
-# ContextCraft 🔍
+# ContextCraft
 
-> **CLI + API + Web UI that indexes any codebase with tree-sitter, stores semantic chunks in pgvector, reranks with Cohere, and answers engineering questions with full file + git-history context.**
+**CLI + API + Web UI that indexes any codebase with tree-sitter, stores semantic chunks in pgvector, reranks with Cohere, and answers engineering questions with full file and git-history context.**
 
 [![CI](https://github.com/AneeshVRao/ContextCraft/actions/workflows/ci.yml/badge.svg)](https://github.com/AneeshVRao/ContextCraft/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org)
@@ -10,265 +10,332 @@
 
 ## What it does
 
-ContextCraft turns your codebase into a searchable knowledge base:
+ContextCraft turns a codebase into a searchable knowledge base:
 
-1. **Parses** your code with [tree-sitter](https://tree-sitter.github.io/) — extracts functions, classes, and modules as semantic chunks (not naive fixed-size splits)
-2. **Builds a Graph** — Resolves Python imports and inheritance to understand cross-file dependencies
-3. **Enriches** each chunk with git blame (who wrote it, when) and commit history
-4. **Embeds** chunks with OpenAI `text-embedding-3-small` and stores them in PostgreSQL + pgvector
-5. **Searches** using hybrid Reciprocal Rank Fusion (RRF) — combining vector similarity and full-text search across **multiple repositories**
-6. **Reranks** top candidates with [Cohere](https://cohere.com/) cross-encoder (`rerank-english-v3.0`) for precision
-7. **Answers** your questions with an LLM (OpenAI, Anthropic, or **local Ollama**), grounded in real code with file paths and line numbers
-8. **Streams** answers via SSE to both the CLI and a sleek Next.js web interface
+1. **Parses** source with [tree-sitter](https://tree-sitter.github.io/) — functions, classes, and modules as semantic chunks (not fixed-size splits).
+2. **Builds a graph** — resolves Python imports and inheritance into `chunk_edges` for dependency-aware context.
+3. **Enriches** chunks with git blame and per-file commit history.
+4. **Embeds** chunks (default: Google Gemini `text-embedding-004`) and stores vectors in PostgreSQL + [pgvector](https://github.com/pgvector/pgvector).
+5. **Searches** with hybrid Reciprocal Rank Fusion (RRF): vector cosine + PostgreSQL full-text, including **multi-repo** queries.
+6. **Reranks** with [Cohere](https://cohere.com/) cross-encoder (`rerank-english-v3.0`) when an API key is set.
+7. **Answers** via Gemini, OpenAI, Anthropic, or local **Ollama**, grounded in retrieved code with paths and line numbers.
+8. **Streams** responses over SSE to the CLI and the Next.js web UI.
 
-## Evaluation & Benchmarks
-We don't just guess that the system works — we measure it. See [BENCHMARK.md](BENCHMARK.md) for hard numbers on our Reciprocal Rank Fusion (RRF), Cohere reranking, and Dependency Graph configurations, including **Source Hit Rate** and **P50/P95 Latency**.
+See [BENCHMARK.md](BENCHMARK.md) for measured source hit rate and latency. See [CHANGELOG.md](CHANGELOG.md) for release history.
 
-## 60-Second Setup
+---
+
+## Quick start
 
 ### Prerequisites
 
-- Python 3.11+
-- Docker (for PostgreSQL + pgvector)
-- A **Free** Google Gemini API Key (for LLM and Embeddings)
-- _(Optional)_ A **Free** Cohere Trial API key for reranking
+| Requirement | Purpose |
+|-------------|---------|
+| Python 3.11+ | CLI, API, indexing |
+| Docker | PostgreSQL 16 + pgvector |
+| Git | Blame and history during index |
+| [Gemini API key](https://aistudio.google.com/app/apikey) | Default embeddings + chat (free tier) |
+| [Cohere API key](https://dashboard.cohere.com/api-keys) | Optional reranking |
+| Node.js 18+ | Web UI only |
 
-### 1. Clone and install
+### 1. Install
 
 ```bash
 git clone https://github.com/AneeshVRao/ContextCraft.git
-cd contextcraft
+cd ContextCraft
+python -m venv .venv
+source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 ```
 
-### 2. Start the database
+### 2. Database
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml up -d postgres
 ```
 
-### 3. Configure API Keys (Zero-Cost Setup)
-
-Get your free API keys:
-1. **Google Gemini (AI Studio)**: [Get Key Here](https://aistudio.google.com/app/apikey) (Free tier, no credit card required)
-2. **Cohere**: [Get Trial Key Here](https://dashboard.cohere.com/api-keys) (Free tier, no credit card required)
+### 3. Environment
 
 ```bash
 cp .env.example .env
-# Edit .env and set:
-#   CONTEXTCRAFT_GEMINI_API_KEY=AIzaSy...
-#   CONTEXTCRAFT_COHERE_API_KEY=...  (optional, enables reranking)
 ```
 
-### 4. Index a codebase
+Set at minimum:
+
+```env
+CONTEXTCRAFT_GEMINI_API_KEY=your_key_here
+# Optional:
+# CONTEXTCRAFT_COHERE_API_KEY=...
+```
+
+Railway and similar hosts can set `DATABASE_URL` instead of `CONTEXTCRAFT_DATABASE_URL`.
+
+### 4. Index and ask (CLI)
 
 ```bash
 contextcraft index ./path/to/your/project
+contextcraft status
+contextcraft ask "How does hybrid search work?"
 ```
 
-### 5. Ask questions
+### 5. Full stack (API + Web UI)
+
+**Terminal 1 — API**
 
 ```bash
-contextcraft ask "How does authentication work?"
-contextcraft ask "What does the process_payment function do?"
-contextcraft ask "Who last modified the database connection code?"
-
-# Disable reranking for faster (but less precise) results
-contextcraft ask "How does search work?" --no-rerank
+uvicorn contextcraft.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Web UI
+Startup verifies Postgres, pgvector, and configured provider keys. Health check: `GET http://localhost:8000/health`.
 
-ContextCraft includes a Next.js 14 web interface with real-time streaming, syntax-highlighted source citations, and repository selection.
+**Terminal 2 — Web UI**
 
 ```bash
 cd web
 npm install
 npm run dev
-# Open http://localhost:3000
 ```
 
-Or run the full stack with Docker:
+Open [http://localhost:3000](http://localhost:3000). The UI proxies to the API via `API_URL` (default `http://127.0.0.1:8000`).
 
-```bash
-docker compose -f docker/docker-compose.yml up -d
-```
+---
 
-## CLI Commands
+## CLI reference
 
 ### `contextcraft index <repo_path>`
 
-Index a codebase: parse → git blame → embed → store.
+Parse → git metadata → embed → store. Rejects sensitive paths (e.g. `~/.ssh`, `/etc`) and symlink escapes outside the repo root.
 
 ```bash
-# Full index
 contextcraft index ./my-project
-
-# Incremental (only changed files)
 contextcraft index ./my-project --incremental
-
-# Parse without embeddings (useful for testing)
-contextcraft index ./my-project --skip-embeddings
+contextcraft index ./my-project --skip-embeddings   # parse only
+contextcraft index ./my-project --skip-git
 ```
 
 ### `contextcraft ask "question"`
 
-Ask a question about indexed code. Streams the answer to your terminal.
+Streams an answer to the terminal. Questions are sanitized (max 500 characters, control characters stripped).
 
 ```bash
-# Basic query across all repos
-contextcraft ask "Where is the authentication middleware?" --all-repos
-
-# Query scoped to specific repos
-contextcraft ask "How does the caching layer work?" --repos repo-a,repo-b
-
-# Expand context with 1-hop dependencies
-contextcraft ask "How do I instantiate the Database client?" --with-deps
-
-# Use local models for privacy
-CONTEXTCRAFT_LLM_PROVIDER=ollama contextcraft ask "Explain this function"
+contextcraft ask "Where is authentication handled?"
+contextcraft ask "Explain the DB pool" --all-repos
+contextcraft ask "Caching layer" --repos repo-a,repo-b
+contextcraft ask "Database client setup" --with-deps
+contextcraft ask "Quick lookup" --no-rerank
 ```
 
 ### `contextcraft status`
 
-Show all indexed repositories with chunk counts and timestamps.
+Lists indexed repositories, languages, chunk counts, and last index time.
 
-```bash
-contextcraft status
-```
+---
 
 ## API
 
-Start the API server:
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | `{"status":"ok","version":"…"}` |
+| `GET` | `/repos` | Indexed repositories |
+| `POST` | `/index` | Start background indexing (`repo_path`, optional flags) |
+| `POST` | `/ask` | SSE stream: `token`, `sources`, `done` (and `warning` if rerank skipped) |
+
+`POST /ask` is rate-limited to **10 requests/minute per IP**.
 
 ```bash
-uvicorn contextcraft.api.main:app --reload
+curl http://localhost:8000/health
 ```
 
-### Endpoints
+---
 
-| Method | Path      | Description                         |
-|--------|-----------|-------------------------------------|
-| GET    | `/health` | Health check                        |
-| GET    | `/repos`  | List indexed repositories           |
-| POST   | `/index`  | Trigger indexing (background task)   |
-| POST   | `/ask`    | Ask a question (SSE streaming)      |
+## Configuration
+
+All settings use the `CONTEXTCRAFT_` prefix (see `.env.example`). Common variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` / `CONTEXTCRAFT_DATABASE_URL` | `postgresql://contextcraft:…@localhost:5432/contextcraft` | Postgres connection |
+| `CONTEXTCRAFT_GEMINI_API_KEY` | — | Gemini embeddings + chat (default providers) |
+| `CONTEXTCRAFT_EMBEDDING_PROVIDER` | `gemini` | `gemini` or `openai` |
+| `CONTEXTCRAFT_LLM_PROVIDER` | `gemini` | `gemini`, `openai`, `anthropic`, `ollama` |
+| `CONTEXTCRAFT_OPENAI_API_KEY` | — | Required when using OpenAI provider |
+| `CONTEXTCRAFT_COHERE_API_KEY` | — | Enables Cohere reranking |
+| `CONTEXTCRAFT_RERANK_ENABLED` | `true` | Toggle reranker |
+| `CONTEXTCRAFT_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | CORS origins (comma-separated) |
+| `CONTEXTCRAFT_OLLAMA_BASE_URL` | `http://localhost:11434` | Local Ollama (localhost only by default) |
+| `CONTEXTCRAFT_OLLAMA_ALLOW_REMOTE` | `false` | Allow non-localhost Ollama URLs (SSRF risk) |
+| `CONTEXTCRAFT_SEARCH_TOP_K` | `10` | Chunks returned after search/rerank |
+| `CONTEXTCRAFT_API_PORT` | `8000` | API listen port |
+
+### Alternative providers
+
+**OpenAI** (embeddings + chat):
+
+```env
+CONTEXTCRAFT_EMBEDDING_PROVIDER=openai
+CONTEXTCRAFT_LLM_PROVIDER=openai
+CONTEXTCRAFT_OPENAI_API_KEY=sk-...
+```
+
+**Ollama** (local chat only; embeddings still need Gemini or OpenAI unless you customize):
+
+```env
+CONTEXTCRAFT_LLM_PROVIDER=ollama
+CONTEXTCRAFT_OLLAMA_MODEL=qwen2.5-coder:7b
+```
+
+Run `ollama serve` and pull the model first.
+
+---
+
+## Deployment
+
+### Railway
+
+`railway.toml` is included. Set `DATABASE_URL`, provider API keys, and `CONTEXTCRAFT_ALLOWED_ORIGINS` to your frontend URL. Deploy uses `docker/Dockerfile` or the configured start command with `$PORT`.
+
+### Docker (API image)
+
+```bash
+docker build -f docker/Dockerfile -t contextcraft .
+docker run -p 8000:8000 --env-file .env contextcraft
+```
+
+The runtime image runs as a non-root user and honors `PORT`.
+
+### PyPI (local build)
+
+```bash
+pip install build
+python -m build --wheel
+pip install dist/contextcraft-*.whl
+contextcraft --help
+```
+
+---
 
 ## Architecture
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌───────────────┐
-│  tree-sitter │────▶│  CodeChunks  │────▶│   pgvector    │
-│   AST Parse  │     │  + git blame │     │  PostgreSQL   │
-└─────────────┘     └──────────────┘     └───────┬───────┘
-                                                  │
-                    ┌──────────────┐               │
-                    │  Hybrid RRF  │◀──────────────┘
-                    │ Vector + BM25│
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │Cohere Rerank │
-                    │ Cross-Encoder│
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐     ┌──────────────┐
-                    │ Context Build │────▶│  Next.js UI  │
-                    │  + LLM Call   │     │  (SSE stream) │
-                    └──────────────┘     └──────────────┘
+┌──────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│ tree-sitter  │────▶│ CodeChunks      │────▶│ pgvector         │
+│ AST parse    │     │ + git blame     │     │ PostgreSQL       │
+└──────────────┘     └────────┬────────┘     └────────┬─────────┘
+                              │                       │
+                     ┌────────▼────────┐              │
+                     │ chunk_edges     │              │
+                     │ (imports/       │              │
+                     │  inherits)      │              │
+                     └────────┬────────┘              │
+                              │                       │
+                     ┌────────▼────────┐     ┌───────▼─────────┐
+                     │ Hybrid RRF      │◀────│ Vector + BM25   │
+                     └────────┬────────┘     └─────────────────┘
+                              │
+                     ┌────────▼────────┐
+                     │ Cohere rerank   │ (optional)
+                     └────────┬────────┘
+                              │
+                     ┌────────▼────────┐     ┌─────────────────┐
+                     │ Context + LLM   │────▶│ Next.js UI      │
+                     │ (SSE)           │     │ CLI             │
+                     └─────────────────┘     └─────────────────┘
 ```
 
-**Key decisions:**
-- **AST chunking** over fixed-size: functions and classes are natural semantic units
-- **pgvector** over Qdrant: same DB as metadata, SQL joins work natively
-- **tsvector** over pg_bm25: zero dependencies, negligible difference after RRF
-- **Per-file git blame**: one subprocess per file, not per chunk (50x speedup)
-- **Cohere cross-encoder**: categorically better than bi-encoder for top-k precision
-- **60-candidate pool**: fetch 60 from hybrid search, rerank down to requested top_k
+**Design notes**
 
-## Supported Languages
+- AST chunking beats fixed token windows for code Q&A.
+- Single Postgres instance holds metadata, vectors, and FTS — no separate vector DB.
+- Per-file `git blame` (one subprocess per file, async during index).
+- RRF merges rankings without score normalization headaches.
+- Dependency expansion uses a 1-hop query plus a `visited` set for cycle safety.
 
-| Language   | Extensions        |
-|------------|-------------------|
-| Python     | `.py`             |
-| JavaScript | `.js`, `.jsx`     |
-| TypeScript | `.ts`, `.tsx`     |
-| Go         | `.go`             |
+---
 
-> **Note:** ContextCraft pins `tree-sitter<0.22.0` for compatibility with the
-> `tree-sitter-languages` pre-compiled grammar package.  This means some
-> bleeding-edge Go and TypeScript grammar features may not be fully
-> supported.  We run explicit tests against Go structs with pointer-receiver
-> methods and TypeScript interfaces to catch regressions.  See
-> [tree-sitter-languages](https://github.com/grantjenks/py-tree-sitter-languages)
-> for upstream status.
+## Supported languages
+
+| Language | Extensions |
+|----------|------------|
+| Python | `.py` |
+| JavaScript | `.js`, `.jsx` |
+| TypeScript | `.ts`, `.tsx` |
+| Go | `.go` |
+
+ContextCraft pins `tree-sitter<0.22.0` for compatibility with `tree-sitter-languages`. Some newer grammar features may be unsupported; see tests under `tests/test_parser.py`.
+
+---
 
 ## Evaluation
 
-ContextCraft includes a built-in evaluation harness to measure retrieval quality:
-
 ```bash
-# Run evaluation without reranking
 python eval/run_eval.py
-
-# Run evaluation with Cohere reranking
 python eval/run_eval.py --rerank
 ```
 
-The harness measures source hit rate, LLM-as-a-judge faithfulness, and p50 latency across 10 benchmark queries. See [`eval/README.md`](eval/README.md) for details.
+Measures source hit rate, faithfulness, and latency. Details: [`eval/README.md`](eval/README.md).
+
+---
 
 ## Development
 
+CI must pass before merge:
+
 ```bash
-# Install dev dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Lint
+ruff format --check src/ tests/
 ruff check src/ tests/
-
-# Format
-ruff format src/ tests/
-
-# Type check
-mypy src/contextcraft/
+mypy src/contextcraft/ --strict
+pytest tests/ -v --tb=short
 ```
 
-## Project Structure
+```bash
+pip install -e ".[dev]"
+pytest
+ruff format src/ tests/
+```
+
+---
+
+## Project structure
 
 ```
 contextcraft/
 ├── src/contextcraft/
 │   ├── cli/main.py           # Typer CLI
-│   ├── parser/ast_parser.py  # tree-sitter AST → CodeChunk
-│   ├── embeddings/           # OpenAI + Ollama embedders
-│   ├── git/                  # blame + commit history
-│   ├── db/                   # asyncpg pool + CRUD
-│   ├── search/               # vector, BM25, hybrid RRF
-│   ├── reranker/             # Cohere cross-encoder reranking
-│   ├── llm/                  # OpenAI + Anthropic providers
-│   └── api/main.py           # FastAPI server
-├── web/                      # Next.js 14 web UI
-│   ├── src/app/              # App Router pages + API proxies
-│   └── src/components/       # React components (chat, citations)
+│   ├── api/main.py           # FastAPI + SSE + rate limits
+│   ├── parser/ast_parser.py  # tree-sitter → CodeChunk
+│   ├── graph/                # Dependency resolver + expander
+│   ├── embeddings/           # Gemini, OpenAI, Ollama
+│   ├── git/                  # Async blame + history
+│   ├── db/                   # asyncpg pool + migrations
+│   ├── search/               # Vector, BM25, hybrid RRF
+│   ├── reranker/             # Cohere cross-encoder
+│   ├── llm/                  # Gemini, OpenAI, Anthropic, Ollama
+│   ├── security.py           # Path + query + Ollama URL policy
+│   └── startup.py            # API startup health checks
+├── web/                      # Next.js UI (App Router)
 ├── eval/                     # RAG evaluation harness
 ├── tests/
 ├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
+│   ├── Dockerfile            # Production API image (non-root)
+│   └── docker-compose.yml    # Postgres (+ optional web)
+├── railway.toml
 ├── pyproject.toml
+├── CHANGELOG.md
 └── .env.example
 ```
 
+---
+
 ## Roadmap
 
-- [x] Phase 1: Core CLI — tree-sitter parser, pgvector, hybrid search, CLI
-- [x] Phase 2: Cohere reranker, evaluation harness, Next.js web UI
-- [ ] Phase 3: Cross-file dependency graph, multi-repo support, Ollama local LLM
-- [ ] Phase 4: File watcher (live re-index), temporal queries, VSCode extension
-- [ ] Phase 5: PyPI publish, blog post
+- [x] Phase 1: Core CLI — parser, pgvector, hybrid search
+- [x] Phase 2: Cohere reranker, eval harness, Next.js UI
+- [x] Phase 3: Dependency graph, multi-repo search, Ollama LLM
+- [x] Phase 3b: Gemini defaults, production hardening, Railway/Docker
+- [ ] Phase 4: File watcher (live re-index), temporal queries, VS Code extension
+- [ ] Phase 5: PyPI publish, marketing site
+
+---
 
 ## License
 
