@@ -9,12 +9,13 @@ Defines the core data structures used across the project:
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import UTC, datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, computed_field, field_validator
-import json
+
 
 class ChunkType(str, Enum):
     """Type of code chunk extracted from AST."""
@@ -113,16 +114,19 @@ class CodeChunk(BaseModel):
     def token_estimate(self) -> int:
         """Rough token count (chars / 4).  Used for context-window budgeting."""
         return len(self.content) // 4
-    
+
     @field_validator("embedding", mode="before")
     @classmethod
     def parse_embedding(cls, v: object) -> list[float] | None:
         if v is None:
             return None
         if isinstance(v, str):
-            # pgvector returns embeddings as a string "[0.1,0.2,...]"
-            return json.loads(v)
-        return v  # already a list[float], pass through
+            parsed = json.loads(v)
+            return [float(x) for x in parsed]
+        if isinstance(v, list):
+            return [float(x) for x in v]
+        return None
+
 
 class Repository(BaseModel):
     """Metadata about an indexed repository."""
