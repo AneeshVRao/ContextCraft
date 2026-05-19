@@ -115,9 +115,7 @@ async def insert_chunks(chunks: list[CodeChunk]) -> int:
             chunk.content,
             chunk.start_line,
             chunk.end_line,
-            str(chunk.embedding)
-            if chunk.embedding
-            else None,  # pgvector expects a string representation
+            ("[" + ",".join(str(v) for v in chunk.embedding) + "]") if chunk.embedding else None,
             chunk.content_hash,
             json.dumps(chunk.git_blame),
             json.dumps([c.model_dump() for c in chunk.commit_history]),
@@ -257,7 +255,7 @@ def _row_to_chunk(row: asyncpg.Record) -> CodeChunk:
         content=row["content"],
         start_line=row["start_line"],
         end_line=row["end_line"],
-        embedding=list(row["embedding"]) if row["embedding"] else None,
+        embedding=json.loads(row["embedding"]) if row["embedding"] else None,
         git_blame=git_blame_raw or {},
         commit_history=[CommitInfo(**c) for c in (commit_hist_raw or [])],
         imports=list(row["imports"] or []),
