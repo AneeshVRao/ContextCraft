@@ -46,17 +46,16 @@ async def llm_judge_faithfulness(question: str, ground_truth: str, generated_ans
 
 
 async def warmup_system(repo_id: UUID) -> None:
-    """Warm up the connection pool, embedding model, and LLM to prevent cold-start latency."""
     console.print("[dim]Warming up system...[/dim]")
     embedder = _get_embedder()
-    llm = _get_llm()
 
-    # Throwaway embedding & hybrid search
+    # Throwaway embedding & hybrid search only
     query_emb = await embedder.embed_single("warmup")
     await hybrid_search(query_emb, "warmup", repo_ids=[repo_id], top_k=2)
 
-    # Throwaway LLM generation
-    await llm.generate("system", "user")
+    # Skip LLM warmup — saves 2 RPD quota
+    # llm = _get_llm()
+    # await llm.generate("system", "user")
     console.print("[dim]Warm-up complete.[/dim]\n")
 
 
@@ -161,6 +160,7 @@ async def run_evaluation(
             console.print(
                 f"[{idx}/{len(test_cases)}] [{color}]Hit Rate: {hit_rate:.1f} | Faithful: {is_faithful} | {retrieval_time:.2f}s[/{color}]"
             )
+            await asyncio.sleep(10) 
 
         all_latencies.extend(run_latencies)
         all_hit_rates.extend(run_hit_rates)

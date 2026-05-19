@@ -41,8 +41,8 @@
   },
   {
     "question": "Which field stores the pgvector embedding?",
-    "expected_sources": ["src/contextcraft/db/migrations/001_init.sql"],
-    "ground_truth": "The embedding is stored in the `embedding` column of type `vector(1536)` in the `code_chunks` table."
+    "expected_sources": ["src/contextcraft/models.py", "src/contextcraft/db/chunks_repo.py"],
+    "ground_truth": "The embedding is stored in the `embedding` column of type `vector(1536)` in the `code_chunks` table, defined in the CodeChunk Pydantic model and persisted via chunks_repo."
   },
   {
     "question": "How are file imports attached to code chunks?",
