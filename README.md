@@ -381,6 +381,9 @@ docker run -p 8000:8000 --env-file .env contextcraft
 
 The production image runs as a non-root user and reads the port from `$PORT`.
 
+> **Note:** A public hosted demo is not maintained to avoid uncontrolled API costs.
+> The full stack runs locally with a free Gemini key — see Quick Start above.
+
 ---
 
 ## Roadmap
