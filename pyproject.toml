@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "contextcraft"
+name = "contextcraft-py"
 version = "0.3.0"
 description = "CLI + API that indexes any codebase with tree-sitter, stores semantic chunks in pgvector, and answers engineering questions with full file + git-history context."
 readme = "README.md"
